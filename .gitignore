@@ -1,0 +1,43 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+out/
+logs/
+*.log
+
+# VSCode specific
+.vscode/
+.vscode-test/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Package locks (optional, kalau tidak mau commit)
+# package-lock.json
+# yarn.lock
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+lcov-report/
+
+# Webpack
+webpack.cache
+.cache/
+
+# Temporary
+tmp/
+temp/

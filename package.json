@@ -1,0 +1,84 @@
+{
+  "name": "generator-vscode-unittest",
+  "displayName": "Python Unittest Generator",
+  "description": "Extension for automated unittest generation for Python",
+  "version": "1.0.0",
+  "publisher": "Fadel",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Testing"
+  ],
+  "activationEvents": [
+    "onView:unittestGeneratorView",
+    "onCommand:generator-vscode-unittest.openPanel",
+    "onCommand:generator-vscode-unittest"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist",
+    "resources"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "generator-vscode-unittest.openPanel",
+        "title": "Open Unittest Generator",
+        "category": "Unittest Generator"
+      },
+      {
+        "command": "generator-vscode-unittest",
+        "title": "Open Unittest Generator (legacy)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "unittestGenerator",
+          "title": "Unittest Generator",
+          "icon": "$(beaker)"
+        }
+      ]
+    },
+    "views": {
+      "unittestGenerator": [
+        {
+          "id": "unittestGeneratorView",
+          "name": "Unittest Panel",
+          "type": "webview"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.105.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^9.36.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.102.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
+    "punycode": "^2.3.1"
+  }
+}
