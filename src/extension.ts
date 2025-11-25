@@ -13,23 +13,23 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("generator-vscode-unittest: activate() called");
-  
+
   try {
     // Register the WebviewViewProvider
     const provider = new UnittestViewProvider(context.extensionUri);
-    
+
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
-        UnittestViewProvider.viewType, 
+        UnittestViewProvider.viewType,
         provider,
         {
           webviewOptions: {
-            retainContextWhenHidden: true
-          }
+            retainContextWhenHidden: true,
+          },
         }
       )
     );
-    
+
     console.log("generator-vscode-unittest: provider registered successfully");
 
     // Register command to open panel
@@ -38,15 +38,16 @@ export function activate(context: vscode.ExtensionContext) {
         "generator-vscode-unittest.openPanel",
         async () => {
           try {
-            await vscode.commands.executeCommand('unittestGeneratorView.focus');
+            await vscode.commands.executeCommand("unittestGeneratorView.focus");
           } catch (error) {
             console.error("Failed to focus view:", error);
-            vscode.window.showInformationMessage("Please click the Unittest Generator icon in the activity bar.");
+            vscode.window.showInformationMessage(
+              "Please click the Unittest Generator icon in the activity bar."
+            );
           }
         }
       )
     );
-
   } catch (err) {
     console.error("generator-vscode-unittest: activation error", err);
     vscode.window.showErrorMessage(
@@ -55,13 +56,91 @@ export function activate(context: vscode.ExtensionContext) {
   }
 }
 
+export function deactivate() {}
 
-export function deactivate() {
-  
+// Configuration Interfaces
+interface TestGenerationConfig {
+  // AI Provider Configuration
+  aiProvider: "openai" | "mettalamma" | "qwen" | "dash" | "kimi" | "deepseek";
+  model: string;
+  temperature: number;
+  maxTokens: number;
+
+  // Test Quality Standards
+  testFramework: "unittest";
+  testStyle: "given_when_then" | "arrange_act_assert";
+  includeAssertions: boolean;
+  includeEdgeCases: boolean;
+  includeErrorCases: boolean;
+
+  // Code Coverage Targets
+  coverageTarget: number;
+  includeBranchCoverage: boolean;
+
+  // Mocking Strategy
+  mockingFramework: "unittest.mock" | "freezegun";
+  autoMockExternalDeps: boolean;
+
+  // Code Quality Rules
+  maxFunctionComplexity: number;
+  requireDocstrings: boolean;
+  enforceNamingConventions: boolean;
+  maxTestLines: number;
+
+  // Generation Behavior
+  generateSetupTeardown: boolean;
+  includeParameterizedTests: boolean;
+  testIsolation: boolean;
 }
 
+interface TestQualityMetrics {
+  qualityScore: string;
+  estimatedCoverage: number;
+  testCount: number;
+  assertionCount: number;
+  hasEdgeCases: boolean;
+  hasErrorCases: boolean;
+  hasMocking: boolean;
+  complexity: number;
+}
+
+// Default Configuration
+const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
+  // AI Provider
+  aiProvider: "openai",
+  model: "gpt-4",
+  temperature: 0.1,
+  maxTokens: 2000,
+
+  // Test Quality
+  testFramework: "unittest",
+  testStyle: "given_when_then",
+  includeAssertions: true,
+  includeEdgeCases: true,
+  includeErrorCases: true,
+
+  // Coverage
+  coverageTarget: 80,
+  includeBranchCoverage: true,
+
+  // Mocking
+  mockingFramework: "unittest.mock",
+  autoMockExternalDeps: true,
+
+  // Code Quality
+  maxFunctionComplexity: 6,
+  requireDocstrings: true,
+  enforceNamingConventions: true,
+  maxTestLines: 50,
+
+  // Generation Behavior
+  generateSetupTeardown: true,
+  includeParameterizedTests: true,
+  testIsolation: true,
+};
+
 class UnittestViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'unittestGeneratorView';
+  public static readonly viewType = "unittestGeneratorView";
   private _view?: vscode.WebviewView;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
@@ -107,12 +186,15 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       }
 
       try {
-        const pyFiles = await vscode.workspace.findFiles("**/*.py", "**/node_modules/**");
+        const pyFiles = await vscode.workspace.findFiles(
+          "**/*.py",
+          "**/node_modules/**"
+        );
         const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
         const files = pyFiles.map((uri) =>
           uri.fsPath.replace(/\\/g, "/").replace(root + "/", "")
         );
-        
+
         this._postMessage(webviewView, { command: "fileList", files });
       } catch (error) {
         console.error("Error finding Python files:", error);
@@ -136,42 +218,51 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
   private _setupMessageHandlers(webviewView: vscode.WebviewView) {
     webviewView.webview.onDidReceiveMessage(async (message) => {
       console.log("Received message from webview:", message.command);
-      
+
       try {
         switch (message.command) {
           case "ready":
-            this._postMessage(webviewView, { command: "status", message: "Extension ready" });
+            this._postMessage(webviewView, {
+              command: "status",
+              message: "Extension ready",
+            });
             break;
-            
+
           case "requestFileList":
             await this._sendPythonFiles(webviewView);
             break;
-            
+
           case "generate":
             await this._handleGenerateTest(webviewView, message);
             break;
-            
+
           case "saveFile":
             await this._handleSaveFile(webviewView, message);
             break;
-            
+
           case "generateCoverage":
             await this._handleGenerateCoverage(webviewView);
             break;
-            
+
+          case "analyzeQuality":
+            await this._handleAnalyzeQuality(webviewView, message);
+            break;
+
           default:
             console.warn("Unknown command:", message.command);
         }
       } catch (error: any) {
         console.error("Error handling message:", error);
-        vscode.window.showErrorMessage(`Error: ${error?.message || String(error)}`);
+        vscode.window.showErrorMessage(
+          `Error: ${error?.message || String(error)}`
+        );
       }
     });
   }
 
   private _setupEventListeners(
-    webviewView: vscode.WebviewView, 
-    updateActiveFile: () => void, 
+    webviewView: vscode.WebviewView,
+    updateActiveFile: () => void,
     sendPythonFiles: () => void
   ) {
     // File system watcher for Python files
@@ -194,12 +285,12 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
           updateActiveFile();
           sendPythonFiles();
         }
-      })
+      }),
     ];
 
     // Cleanup on dispose
     webviewView.onDidDispose(() => {
-      disposables.forEach(disposable => disposable.dispose());
+      disposables.forEach((disposable) => disposable.dispose());
     });
   }
 
@@ -211,12 +302,15 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      const pyFiles = await vscode.workspace.findFiles("**/*.py", "**/node_modules/**");
+      const pyFiles = await vscode.workspace.findFiles(
+        "**/*.py",
+        "**/node_modules/**"
+      );
       const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
       const files = pyFiles.map((uri) =>
         uri.fsPath.replace(/\\/g, "/").replace(root + "/", "")
       );
-      
+
       this._postMessage(webviewView, { command: "fileList", files });
     } catch (error) {
       console.error("Error finding Python files:", error);
@@ -224,7 +318,10 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async _handleGenerateTest(webviewView: vscode.WebviewView, message: any) {
+  private async _handleGenerateTest(
+    webviewView: vscode.WebviewView,
+    message: any
+  ) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
       vscode.window.showErrorMessage("Workspace tidak ditemukan.");
@@ -235,7 +332,9 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     const selectedFilePath = path.join(rootPath, message.fileName);
 
     if (!fs.existsSync(selectedFilePath)) {
-      vscode.window.showErrorMessage(`File ${selectedFilePath} tidak ditemukan.`);
+      vscode.window.showErrorMessage(
+        `File ${selectedFilePath} tidak ditemukan.`
+      );
       return;
     }
 
@@ -243,19 +342,29 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       const code = fs.readFileSync(selectedFilePath, "utf8");
       vscode.window.showInformationMessage("Generating unit tests...");
 
+      // Build configuration from user input
+      const config: TestGenerationConfig = {
+        ...DEFAULT_TEST_CONFIG,
+        testFramework: message.framework || "unittest",
+        coverageTarget: parseInt(message.coverage || "80", 10),
+        includeEdgeCases: message.includeEdgeCases !== false,
+        includeErrorCases: message.includeErrorCases !== false,
+        autoMockExternalDeps: !!message.mocking,
+      };
+
       const result = await generateUnitTest(
         message.provider,
         message.fileName,
         code,
-        parseInt(message.testCases || "3", 10),
-        message.framework || "unittest",
-        !!message.mocking,
-        parseInt(message.coverage || "80", 10)
+        config
       );
+
+      // Use quality metrics returned by generateUnitTest (already analyzed)
+      const qualityMetrics = result.qualityMetrics;
 
       this._postMessage(webviewView, {
         command: "showResult",
-        result,
+        result: result.testCode,
         metadata: {
           provider: message.provider,
           framework: message.framework,
@@ -263,12 +372,17 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
           testCases: message.testCases,
           coverage: message.coverage,
           generation_time: new Date().toISOString(),
+          qualityMetrics: qualityMetrics,
         },
       });
 
-      vscode.window.showInformationMessage("Unit tests generated successfully!");
+      vscode.window.showInformationMessage(
+        "Unit tests generated successfully!"
+      );
     } catch (error: any) {
-      vscode.window.showErrorMessage(`Failed to generate tests: ${error.message}`);
+      vscode.window.showErrorMessage(
+        `Failed to generate tests: ${error.message}`
+      );
     }
   }
 
@@ -277,20 +391,22 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       const result = message.result;
       const basename = path.basename(message.fileName, ".py");
       const newFileName = `test_${basename}.py`;
-      
+
       const activeDoc = vscode.window.activeTextEditor?.document;
-      const dir = activeDoc ? 
-        path.dirname(activeDoc.fileName) : 
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
-      
+      const dir = activeDoc
+        ? path.dirname(activeDoc.fileName)
+        : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+
       const newFilePath = path.join(dir, newFileName);
       fs.writeFileSync(newFilePath, result, "utf8");
 
       // Log test generation
       await this._logTestGeneration(message, basename, newFileName);
 
-      vscode.window.showInformationMessage(`✅ Test file saved as ${newFileName}`);
-      
+      vscode.window.showInformationMessage(
+        `✅ Test file saved as ${newFileName}`
+      );
+
       // Open the new file
       const newDocument = await vscode.workspace.openTextDocument(newFilePath);
       await vscode.window.showTextDocument(newDocument);
@@ -299,11 +415,34 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async _logTestGeneration(message: any, basename: string, newFileName: string) {
+  private async _handleAnalyzeQuality(
+    webviewView: vscode.WebviewView,
+    message: any
+  ) {
     try {
-      const projectRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
+      const qualityMetrics = analyzeTestQuality(
+        message.testCode,
+        message.sourceCode
+      );
+      this._postMessage(webviewView, {
+        command: "qualityAnalysis",
+        metrics: qualityMetrics,
+      });
+    } catch (error: any) {
+      console.error("Quality analysis failed:", error);
+    }
+  }
+
+  private async _logTestGeneration(
+    message: any,
+    basename: string,
+    newFileName: string
+  ) {
+    try {
+      const projectRoot =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
       const runId = `${Date.now()}-${randomBytes(4).toString("hex")}`;
-      
+
       const entry = {
         runId,
         file_tested: basename + ".py",
@@ -314,7 +453,9 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         mocking: !!message.metadata?.mocking,
         test_count: parseInt(message.metadata?.testCases || "0", 10),
         coverage_target: parseInt(message.metadata?.coverage || "0", 10),
-        generation_time: message.metadata?.generation_time || new Date().toISOString(),
+        generation_time:
+          message.metadata?.generation_time || new Date().toISOString(),
+        quality_metrics: message.metadata?.qualityMetrics || {},
         status: "generated",
         tests_total: 0,
         tests_passed: 0,
@@ -335,7 +476,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       this._postMessage(webviewView, {
         command: "coverageResult",
         success: false,
-        message: error?.message || String(error)
+        message: error?.message || String(error),
       });
     }
   }
@@ -347,27 +488,22 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
   }
 
   private _getWebviewContent(webview: vscode.Webview): string {
-    const htmlPath = path.join(this._extensionUri.fsPath, "resources", "panel.html");
+    const htmlPath = path.join(
+      this._extensionUri.fsPath,
+      "resources",
+      "panel.html"
+    );
 
     try {
       let htmlContent = fs.readFileSync(htmlPath, "utf8");
-
-      htmlContent = this._updateResourceUrls(htmlContent, webview);
-
       return htmlContent;
     } catch (error) {
       console.log("Error reading panel.html:", error);
-      
       return this._getFallbackHtmlContent();
     }
   }
 
-  private _updateResourceUrls(htmlContent: string, webview: vscode.Webview): string {
-    return htmlContent;
-  }
-
   private _getFallbackHtmlContent(): string {
-    // Simple fallback HTML in case the external file can't be loaded
     return `
       <!DOCTYPE html>
       <html>
@@ -397,91 +533,71 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
   }
 }
 
-
-
+// Enhanced test generation with quality features
 async function generateUnitTest(
   provider: string,
   fileName: string,
   code: string,
-  testCount: number,
-  framework: string,
-  mocking: boolean,
-  coverage: number
-): Promise<string> {
-  const prompt = `
-You are an AI assistant that generates Python unittest code.
-
-Generate a complete unittest for the following Python code:
-${code}
-
-Requirements:
-1. The title of the code is ${fileName}.
-2. Use the standard Python ${framework} module.
-3. Create ${testCount} meaningful test cases.
-4. Use mocking/stubbing: ${mocking}.
-5. Aim for ${coverage}% code coverage.
-6. Do not provide explanations, give me only output Python code.
-7. The answer must start with 'import ${framework}'.
-`;
+  config: TestGenerationConfig
+): Promise<{ testCode: string; qualityMetrics: TestQualityMetrics }> {
+  const prompt = buildTestPrompt(fileName, code, config);
 
   const AIResponse = {
     choices: [{ message: { content: "" } }],
   };
 
-  let res: any;
   let apiKey: string | undefined;
   let url: string | undefined;
   let model: string | undefined;
 
-  switch (provider) {
-    case "openai":
-      apiKey = process.env.GROQ_API_KEY;
-      url = "https://api.groq.com/openai/v1/chat/completions";
-      model = "openai/gpt-oss-20b";
-      break;
+  // Provider configuration mapping
+  const providerConfig = {
+    openai: {
+      apiKey: process.env.GROQ_API_KEY,
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      model: "openai/gpt-oss-20b",
+    },
+    metalamma: {
+      apiKey: process.env.GROQ_API_KEY,
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+    },
+    qwen: {
+      apiKey: process.env.GROQ_API_KEY,
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      model: "qwen/qwen3-32b",
+    },
+    dash: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: "openrouter/sherlock-dash-alpha",
+    },
+    kimi: {
+      apiKey: process.env.GROQ_API_KEY,
+      url: "https://api.groq.com/openai/v1/chat/completions",
+      model: "moonshotai/kimi-k2-instruct",
+    },
+    deepseek: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: "deepseek/deepseek-chat",
+    },
+  };
 
-    case "metalamma":
-      apiKey = process.env.GROQ_API_KEY;
-      url = "https://api.groq.com/openai/v1/chat/completions";
-      model = "meta-llama/llama-4-maverick-17b-128e-instruct";
-      break;
-
-    case "qwen":
-      apiKey = process.env.GROQ_API_KEY;
-      url = "https://api.groq.com/openai/v1/chat/completions";
-      model = "qwen/qwen3-32b";
-      break;
-
-    case "dash":
-      apiKey = process.env.OPENROUTER_API_KEY;
-      url = "https://openrouter.ai/api/v1/chat/completions";
-      model = "openrouter/sherlock-dash-alpha";
-      break;
-
-    case "kimi":
-      apiKey = process.env.GROQ_API_KEY;
-      url = "https://api.groq.com/openai/v1/chat/completions";
-      model = "moonshotai/kimi-k2-instruct";
-      break;
-
-    case "deepseek":
-      apiKey = process.env.OPENROUTER_API_KEY;
-      url = "https://openrouter.ai/api/v1/chat/completions";
-      model = "deepseek/deepseek-chat";
-      break;
-
-    default:
-      throw new Error("Unknown provider selected: " + provider);
+  const providerInfo = providerConfig[provider as keyof typeof providerConfig];
+  if (!providerInfo) {
+    throw new Error("Unknown provider selected: " + provider);
   }
+
+  ({ apiKey, url, model } = providerInfo);
 
   if (!apiKey) {
     throw new Error(`API key for ${provider} not found in .env`);
   }
 
-  // resolve fetch implementation at runtime to avoid ESM bundling issues
+  // resolve fetch implementation at runtime
   if (!runtimeFetch) {
     try {
-      // use eval to avoid webpack statically resolving require
       const req: any = eval("require");
       const nf = req("node-fetch");
       runtimeFetch = nf && nf.default ? nf.default : nf;
@@ -491,10 +607,10 @@ Requirements:
   }
 
   if (!runtimeFetch) {
-    throw new Error("No fetch implementation available (global fetch or node-fetch)");
+    throw new Error("No fetch implementation available");
   }
 
-  res = await runtimeFetch(url!, {
+  const res = await runtimeFetch(url!, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -505,10 +621,13 @@ Requirements:
       messages: [
         {
           role: "system",
-          content: "You are an AI assistant that writes Python unittests.",
+          content:
+            "You are an expert Python test engineer that writes high-quality, maintainable unit tests.",
         },
         { role: "user", content: prompt },
       ],
+      temperature: config.temperature,
+      max_tokens: config.maxTokens,
     }),
   });
 
@@ -518,10 +637,169 @@ Requirements:
   }
 
   const json = (await res.json()) as typeof AIResponse;
-  return json?.choices?.[0]?.message?.content || "No response";
+  const testCode = json?.choices?.[0]?.message?.content || "No response";
+
+  // Analyze quality of generated tests
+  const qualityMetrics = analyzeTestQuality(testCode, code);
+
+  return { testCode, qualityMetrics };
 }
 
-const runCommand = (cmd: string, args: string[], cwd?: string): Promise<string> => {
+// Build comprehensive prompt with quality requirements
+function buildTestPrompt(
+  fileName: string,
+  code: string,
+  config: TestGenerationConfig
+): string {
+  return `
+You are an expert Python test engineer. Generate high-quality unit tests following these STRICT requirements:
+
+## GENERATION CONFIGURATION:
+- Framework: ${config.testFramework}
+- Test Style: ${config.testStyle}
+- Coverage Target: ${config.coverageTarget}%
+- Mocking Framework: ${config.mockingFramework}
+- Include Edge Cases: ${config.includeEdgeCases}
+- Include Error Cases: ${config.includeErrorCases}
+- Max Test Complexity: ${config.maxFunctionComplexity}
+
+## CODE QUALITY RULES:
+${
+  config.requireDocstrings
+    ? "- Every test MUST have descriptive docstrings"
+    : ""
+}
+${
+  config.enforceNamingConventions
+    ? "- Use snake_case for test names, prefix with test_"
+    : ""
+}
+${
+  config.maxTestLines
+    ? `- Maximum ${config.maxTestLines} lines per test function`
+    : ""
+}
+- Tests must be isolated and independent
+- Use descriptive test names that explain the scenario
+
+## TEST STRUCTURE REQUIREMENTS:
+${
+  config.testStyle === "given_when_then"
+    ? `- Follow Given-When-Then pattern:
+  # Given - setup initial conditions
+  # When - execute the action
+  # Then - verify the results`
+    : `- Follow Arrange-Act-Assert pattern:
+  # Arrange - setup test data
+  # Act - call the function
+  # Assert - verify outcomes`
+}
+
+## MOCKING STRATEGY:
+${
+  config.autoMockExternalDeps
+    ? "- Automatically mock all external dependencies"
+    : "- Mock only when necessary"
+}
+- Use ${config.mockingFramework} for mocking
+- Mock external API calls, database operations, file I/O
+
+## SPECIFIC INSTRUCTIONS:
+1. Cover happy path scenarios
+${
+  config.includeEdgeCases ? "2. Include boundary conditions and edge cases" : ""
+}
+${config.includeErrorCases ? "3. Test error conditions and exceptions" : ""}
+${
+  config.includeParameterizedTests
+    ? "4. Use parameterized tests for similar test cases"
+    : ""
+}
+5. Ensure tests are fast and isolated
+6. Use meaningful assertions with descriptive messages
+
+## SOURCE CODE TO TEST:
+\`\`\`python
+${code}
+\`\`\`
+
+Generate comprehensive unit tests that achieve ${
+    config.coverageTarget
+  }% coverage. Focus on testing behavior, not implementation.
+
+Return ONLY the Python test code without any explanations or markdown formatting.
+`;
+}
+
+// Analyze test quality metrics
+function analyzeTestQuality(
+  testCode: string,
+  sourceCode: string
+): TestQualityMetrics {
+  const testCount = (testCode.match(/def test_/g) || []).length;
+  const assertionCount = (
+    testCode.match(/assert|self\.assert|unittest\.assert/g) || []
+  ).length;
+  const hasEdgeCases = /edge|boundary|min|max|zero|empty|null/.test(
+    testCode.toLowerCase()
+  );
+  const hasErrorCases = /error|exception|try|except|raise/.test(
+    testCode.toLowerCase()
+  );
+  const hasMocking = /mock|patch|MagicMock|Mock/.test(testCode);
+  const complexity = calculateComplexity(testCode);
+
+  // Calculate quality score
+  let qualityScore = "Poor";
+  if (testCount >= 3 && assertionCount >= testCount) {
+    qualityScore = "Good";
+  }
+  if (
+    testCount >= 5 &&
+    assertionCount >= testCount * 1.5 &&
+    hasEdgeCases &&
+    hasErrorCases
+  ) {
+    qualityScore = "Excellent";
+  }
+
+  // Estimate coverage based on test metrics
+  const estimatedCoverage = Math.min(
+    100,
+    Math.max(
+      50,
+      testCount * 15 +
+        assertionCount * 5 +
+        (hasEdgeCases ? 10 : 0) +
+        (hasErrorCases ? 10 : 0)
+    )
+  );
+
+  return {
+    qualityScore,
+    estimatedCoverage,
+    testCount,
+    assertionCount,
+    hasEdgeCases,
+    hasErrorCases,
+    hasMocking,
+    complexity,
+  };
+}
+
+// Calculate code complexity (simplified)
+function calculateComplexity(code: string): number {
+  const lines = code.split("\n").length;
+  const branches = (code.match(/if|for|while|catch/g) || []).length;
+  return Math.max(1, Math.round(lines * 0.1 + branches));
+}
+
+// Existing utility functions (keep these as they are)
+const runCommand = (
+  cmd: string,
+  args: string[],
+  cwd?: string
+): Promise<string> => {
   return new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { cwd, shell: true });
     let output = "";
@@ -554,7 +832,11 @@ async function runCoverageAndParse(panelLike: { webview: vscode.Webview }) {
   }
 
   try {
-    await runCommand("coverage", ["run", "-m", "unittest", "discover"], workspace);
+    await runCommand(
+      "coverage",
+      ["run", "-m", "unittest", "discover"],
+      workspace
+    );
     await runCommand("coverage", ["json", "-o", "coverage.json"], workspace);
 
     const covPath = path.join(workspace, "coverage.json");
@@ -563,7 +845,9 @@ async function runCoverageAndParse(panelLike: { webview: vscode.Webview }) {
     const files = Object.entries(json.files || {}).map(([file, data]: any) => ({
       file,
       percent_covered: data.summary?.percent_covered || 0,
-      covered_lines: (data.summary?.num_statements || 0) - (data.summary?.missing_lines || 0),
+      covered_lines:
+        (data.summary?.num_statements || 0) -
+        (data.summary?.missing_lines || 0),
       missing_lines: data.summary?.missing_lines || [],
     }));
 
@@ -619,15 +903,26 @@ function writeTestLogEntry(projectRoot: string, entry: any) {
 
     data.summary = {
       total_runs: data.results.length,
-      total_tests: data.results.reduce((s: number, r: any) => s + (r.tests_total || 0), 0),
-      total_passed: data.results.reduce((s: number, r: any) => s + (r.tests_passed || 0), 0),
-      total_failed: data.results.reduce((s: number, r: any) => s + (r.tests_failed || 0), 0),
+      total_tests: data.results.reduce(
+        (s: number, r: any) => s + (r.tests_total || 0),
+        0
+      ),
+      total_passed: data.results.reduce(
+        (s: number, r: any) => s + (r.tests_passed || 0),
+        0
+      ),
+      total_failed: data.results.reduce(
+        (s: number, r: any) => s + (r.tests_failed || 0),
+        0
+      ),
     };
 
     fs.writeFileSync(logPath, JSON.stringify(data, null, 2), "utf8");
   } catch (err: any) {
     console.error("Failed to write test_log.json:", err?.message || err);
-    vscode.window.showErrorMessage("Gagal menyimpan test_log.json — periksa permission / disk space.");
+    vscode.window.showErrorMessage(
+      "Gagal menyimpan test_log.json — periksa permission / disk space."
+    );
   }
 }
 
@@ -655,7 +950,11 @@ function generateMarkdownReport(projectRoot: string) {
 `;
 
   (data.results || []).forEach((r: any) => {
-    md += `| ${r.file_tested || ""} | ${r.test_file || ""} | ${r.tests_total || 0} | ${r.tests_passed || 0} | ${r.tests_failed || 0} | ${r.status || ""} | ${r.runId || ""} |
+    md += `| ${r.file_tested || ""} | ${r.test_file || ""} | ${
+      r.tests_total || 0
+    } | ${r.tests_passed || 0} | ${r.tests_failed || 0} | ${r.status || ""} | ${
+      r.runId || ""
+    } |
 `;
   });
 

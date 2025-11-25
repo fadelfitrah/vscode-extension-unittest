@@ -1,554 +1,909 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Python Unit Test Generator</title>
-  <style>
-    :root {
-      --bg-color: #1e1e1e;
-      --card-bg: #252526;
-      --accent: #007acc;
-      --accent-hover: #005a9e;
-      --text-color: #cccccc;
-      --text-muted: #969696;
-      --border-color: #3c3c3c;
-      --success: #4ec9b0;
-      --header-bg: #2d2d30;
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: var(--bg-color);
-      color: var(--text-color);
-      line-height: 1.4;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-    }
-    
-    .header {
-      background: var(--header-bg);
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
-    }
-    
-    .header h2 {
-      color: var(--accent);
-      font-size: 1.1rem;
-      font-weight: 600;
-    }
-    
-    .result-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 16px;
-      border-bottom: 1px solid var(--border-color);
-      min-height: 200px;
-    }
-    
-    .result-section h3 {
-      margin-bottom: 8px;
-      font-size: 0.9rem;
-      color: var(--text-color);
-      font-weight: 500;
-    }
-    
-    .result {
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      padding: 12px;
-      flex: 1;
-      overflow-y: auto;
-      font-family: 'Cascadia Code', 'Consolas', monospace;
-      font-size: 12px;
-      line-height: 1.3;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-    
-    .controls-section {
-      padding: 16px;
-      background: var(--card-bg);
-    }
-    
-    .form-group {
-      margin-bottom: 12px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 4px;
-      font-weight: 500;
-      color: var(--text-color);
-      font-size: 0.85rem;
-    }
-    
-    select, input[type="number"] {
-      width: 100%;
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      color: var(--text-color);
-      padding: 6px 8px;
-      border-radius: 4px;
-      font-size: 0.85rem;
-    }
-    
-    select:focus, input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin: 8px 0;
-    }
-    
-    .checkbox-group input[type="checkbox"] {
-      width: auto;
-    }
-    
-    .checkbox-group label {
-      margin: 0;
-      font-size: 0.85rem;
-    }
-    
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    
-    .btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85rem;
-      font-weight: 500;
-      transition: background 0.2s;
-      width: 100%;
-    }
-    
-    .btn:hover {
-      background: var(--accent-hover);
-    }
-    
-    .btn-secondary {
-      background: var(--border-color);
-    }
-    
-    .btn-secondary:hover {
-      background: #4a4a4a;
-    }
-    
-    .btn-success {
-      background: var(--success);
-    }
-    
-    .btn-success:hover {
-      background: #3aa890;
-    }
-    
-    .buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 12px 0;
-    }
-    
-    .coverage-section {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid var(--border-color);
-    }
-    
-    .coverage-section h3 {
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-      color: var(--text-color);
-      font-weight: 500;
-    }
-    
-    .coverage-result {
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      padding: 8px;
-      min-height: 60px;
-      max-height: 120px;
-      overflow-y: auto;
-      font-family: 'Cascadia Code', 'Consolas', monospace;
-      font-size: 11px;
-      line-height: 1.3;
-      white-space: pre-wrap;
-    }
-    
-    .footer {
-      text-align: center;
-      padding: 8px 16px;
-      color: var(--text-muted);
-      font-size: 0.7rem;
-      border-top: 1px solid var(--border-color);
-      background: var(--header-bg);
-    }
-    
-    .hidden {
-      display: none;
-    }
-    
-    .status {
-      padding: 6px 8px;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      margin-bottom: 8px;
-    }
-    
-    .status.info {
-      background: rgba(0, 122, 204, 0.1);
-      border: 1px solid var(--accent);
-    }
-    
-    .status.success {
-      background: rgba(78, 201, 176, 0.1);
-      border: 1px solid var(--success);
-    }
-    
-    .quality-indicators {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 8px;
-      font-size: 0.8rem;
-    }
-    
-    .quality-score, .coverage-preview, .test-stats {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    
-    .score-label, .coverage-label, .stats-label {
-      color: var(--text-muted);
-    }
-    
-    .score-value, .coverage-value, .stats-value {
-      color: var(--text-color);
-      font-weight: 500;
-    }
-    
-    /* Scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-      background: var(--bg-color);
-    }
-    
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: #555;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <h2>🧪 Test Generator</h2>
-    </div>
-
-    <!-- Main Result Area (Top) -->
-    <div class="result-section">
-      <div class="quality-indicators">
-        <div class="quality-score">
-          <span class="score-label">Quality:</span>
-          <span class="score-value" id="qualityScore">--</span>
-        </div>
-        <div class="coverage-preview">
-          <span class="coverage-label">Coverage:</span>
-          <span class="coverage-value" id="estimatedCoverage">--%</span>
-        </div>
-        <div class="test-stats">
-          <span class="stats-label">Tests:</span>
-          <span class="stats-value" id="testStats">--</span>
-        </div>
-      </div>
-      
-      <h3>Generated Test Code</h3>
-      <div id="result" class="result">// Select a Python file and click Generate to create unit tests</div>
-    </div>
-
-    <!-- Controls Section (Bottom) -->
-    <div class="controls-section">
-      <div class="form-group">
-        <label for="fileSelect">Python File</label>
-        <select id="fileSelect">
-          <option value="">Loading Python files...</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label for="provider">AI Provider</label>
-        <select id="provider">
-          <option value="openai">OpenAI</option>
-          <option value="metalamma">Meta Llama</option>
-          <option value="qwen">Qwen</option>
-          <option value="dash">Sherloc Dash</option>
-          <option value="kimi">Kimi</option>
-          <option value="deepseek">DeepSeek</option>
-        </select>
-      </div>
-
-      <div class="checkbox-group">
-        <input id="mocking" type="checkbox" />
-        <label for="mocking">Enable Mocking</label>
-      </div>
-
-      <div class="grid-2">
-        <div class="form-group">
-          <label for="testCases">Test Cases</label>
-          <input id="testCases" type="number" value="3" min="1" max="10" />
-        </div>
-        <div class="form-group">
-          <label for="coverage">Coverage Target</label>
-          <input id="coverage" type="number" value="80" min="50" max="100" />
-        </div>
-      </div>
-
-      <div class="buttons">
-        <button id="generateBtn" class="btn">Generate Tests</button>
-        <button id="coverageBtn" class="btn btn-secondary">Run Coverage</button>
-      </div>
-
-      <button id="saveFile" class="btn btn-success hidden">Save Test File</button>
-
-      <div class="coverage-section">
-        <h3>Coverage Report</h3>
-        <div id="coverageResult" class="coverage-result">No coverage data available</div>
-      </div>
-    </div>
-
-    <div class="footer">
-      Python Unit Test Generator © 2025
-    </div>
-  </div>
-
-  <script>
-    const vscode = acquireVsCodeApi();
-    let lastGeneratedResult = "";
-    let lastGeneratedMeta = null;
-
-    // Initialize when DOM is loaded
-    window.addEventListener('DOMContentLoaded', () => {
-      vscode.postMessage({ command: 'requestFileList' });
-      vscode.postMessage({ command: 'ready' });
-    });
-
-    // Handle messages from extension
-    window.addEventListener('message', (event) => {
-      const message = event.data;
-
-      switch (message.command) {
-        case 'fileList':
-          updateFileList(message.files);
-          break;
-        case 'showResult':
-          showResult(message.result, message.metadata);
-          break;
-        case 'coverageResult':
-          showCoverageResult(message);
-          break;
-        case 'status':
-          showStatus(message.message, message.type);
-          break;
-        case 'configUpdate':
-          updateConfiguration(message.config);
-          break;
-      }
-    });
-
-    function updateFileList(files) {
-      const select = document.getElementById('fileSelect');
-      select.innerHTML = '';
-      
-      if (!files || files.length === 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'No Python files found in workspace';
-        select.appendChild(option);
-        return;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Python Unit Test Generator</title>
+    <style>
+      :root {
+        --bg-color: #1e1e1e;
+        --card-bg: #252526;
+        --accent: #007acc;
+        --accent-hover: #005a9e;
+        --text-color: #cccccc;
+        --text-muted: #969696;
+        --border-color: #3c3c3c;
+        --success: #4ec9b0;
+        --warning: #ffcc02;
+        --error: #f48771;
+        --header-bg: #2d2d30;
       }
 
-      files.forEach(file => {
-        const option = document.createElement('option');
-        option.value = file;
-        option.textContent = file;
-        select.appendChild(option);
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: var(--bg-color);
+        color: var(--text-color);
+        line-height: 1.4;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+      }
+
+      .header {
+        background: var(--header-bg);
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      .header h2 {
+        color: var(--accent);
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+
+      .result-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        border-bottom: 1px solid var(--border-color);
+        min-height: 300px;
+      }
+
+      .result-section h3 {
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+        color: var(--text-color);
+        font-weight: 500;
+      }
+
+      .result {
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 12px;
+        flex: 1;
+        overflow-y: auto;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 12px;
+        line-height: 1.3;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .controls-section {
+        padding: 10px;
+        background: var(--card-bg);
+      }
+
+      .form-group {
+        margin-bottom: 12px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 0.85rem;
+      }
+
+      select,
+      input[type="number"] {
+        width: 100%;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 6px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+      }
+
+      select:focus,
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 8px 0;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        width: auto;
+      }
+
+      .checkbox-group label {
+        margin: 0;
+        font-size: 0.85rem;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+
+      .btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: background 0.2s;
+        width: 100%;
+      }
+
+      .btn:hover {
+        background: var(--accent-hover);
+      }
+
+      .btn-secondary {
+        background: var(--border-color);
+      }
+
+      .btn-secondary:hover {
+        background: #4a4a4a;
+      }
+
+      .btn-success {
+        background: var(--success);
+      }
+
+      .btn-success:hover {
+        background: #3aa890;
+      }
+
+      .btn-warning {
+        background: var(--warning);
+        color: #000;
+      }
+
+      .btn-warning:hover {
+        background: #e6b800;
+      }
+
+      .buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 12px 0;
+      }
+
+      .coverage-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+      }
+
+      .coverage-section h3 {
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+        color: var(--text-color);
+        font-weight: 500;
+      }
+
+      .coverage-result {
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 8px;
+        min-height: 60px;
+        max-height: 120px;
+        overflow-y: auto;
+        font-family: "Cascadia Code", "Consolas", monospace;
+        font-size: 11px;
+        line-height: 1.3;
+        white-space: pre-wrap;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 8px 16px;
+        color: var(--text-muted);
+        font-size: 0.7rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--header-bg);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .status {
+        padding: 6px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+      }
+
+      .status.info {
+        background: rgba(0, 122, 204, 0.1);
+        border: 1px solid var(--accent);
+      }
+
+      .status.success {
+        background: rgba(78, 201, 176, 0.1);
+        border: 1px solid var(--success);
+      }
+
+      .status.warning {
+        background: rgba(255, 204, 2, 0.1);
+        border: 1px solid var(--warning);
+      }
+
+      .status.error {
+        background: rgba(244, 135, 113, 0.1);
+        border: 1px solid var(--error);
+      }
+
+      .quality-indicators {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+        flex-wrap: wrap;
+      }
+
+      .quality-score,
+      .coverage-preview,
+      .test-stats,
+      .complexity-score {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+      }
+
+      .score-label,
+      .coverage-label,
+      .stats-label,
+      .complexity-label {
+        color: var(--text-muted);
+      }
+
+      .score-value,
+      .coverage-value,
+      .stats-value,
+      .complexity-value {
+        color: var(--text-color);
+        font-weight: 500;
+      }
+
+      .score-value.excellent {
+        color: var(--success);
+      }
+      .score-value.good {
+        color: var(--accent);
+      }
+      .score-value.fair {
+        color: var(--warning);
+      }
+      .score-value.poor {
+        color: var(--error);
+      }
+
+      .quality-details {
+        display: none;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 8px;
+        margin-bottom: 8px;
+        font-size: 0.8rem;
+      }
+
+      .quality-details.visible {
+        display: block;
+      }
+
+      .quality-features {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .quality-feature {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .feature-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .feature-indicator.present {
+        background: var(--success);
+      }
+
+      .feature-indicator.missing {
+        background: var(--error);
+      }
+
+      .feature-label {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .advanced-toggle {
+        background: none;
+        border: none;
+        color: var(--accent);
+        font-size: 0.75rem;
+        cursor: pointer;
+        padding: 4px 0;
+        text-align: left;
+      }
+
+      .advanced-toggle:hover {
+        text-decoration: underline;
+      }
+
+      .advanced-options {
+        display: none;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 8px;
+      }
+
+      .advanced-options.visible {
+        display: block;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-color);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <h2>🧪 Test Generator</h2>
+      </div>
+
+      <!-- Main Result Area (Top) -->
+      <div class="result-section">
+        <div class="quality-indicators">
+          <div class="quality-score">
+            <span class="score-label">Quality:</span>
+            <span class="score-value" id="qualityScore">--</span>
+          </div>
+          <div class="coverage-preview">
+            <span class="coverage-label">Coverage:</span>
+            <span class="coverage-value" id="estimatedCoverage">--%</span>
+          </div>
+          <div class="test-stats">
+            <span class="stats-label">Tests:</span>
+            <span class="stats-value" id="testStats">--</span>
+          </div>
+          <div class="complexity-score">
+            <span class="complexity-label">Complexity:</span>
+            <span class="complexity-value" id="complexityScore">--</span>
+          </div>
+        </div>
+
+        <div id="qualityDetails" class="quality-details">
+          <div class="quality-features">
+            <div class="quality-feature">
+              <div class="feature-indicator" id="edgeCasesIndicator"></div>
+              <span class="feature-label">Edge Cases</span>
+            </div>
+            <div class="quality-feature">
+              <div class="feature-indicator" id="errorCasesIndicator"></div>
+              <span class="feature-label">Error Cases</span>
+            </div>
+            <div class="quality-feature">
+              <div class="feature-indicator" id="mockingIndicator"></div>
+              <span class="feature-label">Mocking</span>
+            </div>
+            <div class="quality-feature">
+              <span class="feature-label">Assertions:</span>
+              <span class="stats-value" id="assertionCount">--</span>
+            </div>
+          </div>
+        </div>
+
+        <h3>Generated Test Code</h3>
+        <div id="result" class="result">
+          // Select a Python file and click Generate to create unit tests
+        </div>
+      </div>
+
+      <!-- Controls Section (Bottom) -->
+      <div class="controls-section">
+        <div class="form-group">
+          <label for="fileSelect">Python File</label>
+          <select id="fileSelect">
+            <option value="">Loading Python files...</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="provider">AI Provider</label>
+          <select id="provider">
+            <option value="openai">OpenAI</option>
+            <option value="metalamma">Meta Llama</option>
+            <option value="qwen">Qwen</option>
+            <option value="dash">Sherloc Dash</option>
+            <option value="kimi">Kimi</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+        </div>
+
+        <button id="advancedToggle" class="advanced-toggle">
+          ⚙️ Advanced Options
+        </button>
+
+        <div id="advancedOptions" class="advanced-options">
+          <div class="grid-3">
+            <div class="checkbox-group">
+              <input id="edgeCases" type="checkbox" checked />
+              <label for="edgeCases">Edge Cases</label>
+            </div>
+            <div class="checkbox-group">
+              <input id="errorCases" type="checkbox" checked />
+              <label for="errorCases">Error Cases</label>
+            </div>
+            <div class="checkbox-group">
+              <input id="mocking" type="checkbox" checked />
+              <label for="mocking">Mocking</label>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="testCases">Test Cases</label>
+              <input id="testCases" type="number" value="3" min="1" max="10" />
+            </div>
+            <div class="form-group">
+              <label for="coverage">Coverage Target</label>
+              <input
+                id="coverage"
+                type="number"
+                value="80"
+                min="50"
+                max="100"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="testStyle">Test Style</label>
+            <select id="testStyle">
+              <option value="given_when_then">Given-When-Then</option>
+              <option value="arrange_act_assert">Arrange-Act-Assert</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button id="generateBtn" class="btn">Generate Tests</button>
+          <button id="coverageBtn" class="btn btn-secondary">
+            Run Coverage
+          </button>
+        </div>
+
+        <div class="buttons">
+          <button id="analyzeBtn" class="btn btn-warning">
+            Analyze Quality
+          </button>
+          <button id="saveFile" class="btn btn-success hidden">
+            Save Test File
+          </button>
+        </div>
+
+        <div class="coverage-section">
+          <h3>Coverage Report</h3>
+          <div id="coverageResult" class="coverage-result">
+            No coverage data available
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">Python Unit Test Generator © 2025</div>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+      let lastGeneratedResult = "";
+      let lastGeneratedMeta = null;
+      let isAdvancedVisible = false;
+
+      // Initialize when DOM is loaded
+      window.addEventListener("DOMContentLoaded", () => {
+        vscode.postMessage({ command: "requestFileList" });
+        vscode.postMessage({ command: "ready" });
+
+        // Load saved state
+        const state = vscode.getState();
+        if (state) {
+          if (state.advancedVisible !== undefined) {
+            isAdvancedVisible = state.advancedVisible;
+            toggleAdvancedOptions(isAdvancedVisible);
+          }
+        }
       });
-    }
 
-    function showResult(result, metadata) {
-      const resultElement = document.getElementById('result');
-      const saveButton = document.getElementById('saveFile');
-      
-      resultElement.textContent = result;
-      lastGeneratedResult = result;
-      lastGeneratedMeta = metadata || null;
-      saveButton.classList.remove('hidden');
-      
-      // Update quality indicators
-      updateQualityIndicators(result, metadata);
-      
-      // Clear coverage result when new test is generated
-      document.getElementById('coverageResult').textContent = 'No coverage data available';
-    }
+      // Handle messages from extension
+      window.addEventListener("message", (event) => {
+        const message = event.data;
 
-    function updateQualityIndicators(testCode, metadata) {
-      // Simple quality estimation based on test code analysis
-      const testCount = (testCode.match(/def test_/g) || []).length;
-      const assertionCount = (testCode.match(/assert|self\.assert|unittest\.assert/g) || []).length;
-      
-      document.getElementById('testStats').textContent = testCount;
-      document.getElementById('estimatedCoverage').textContent = `${metadata?.coverage || '--'}%`;
-      
-      // Simple quality score calculation
-      let qualityScore = 'Good';
-      if (testCount === 0) qualityScore = 'Poor';
-      else if (assertionCount < testCount) qualityScore = 'Fair';
-      else if (assertionCount >= testCount * 2) qualityScore = 'Excellent';
-      
-      document.getElementById('qualityScore').textContent = qualityScore;
-    }
+        switch (message.command) {
+          case "fileList":
+            updateFileList(message.files);
+            break;
+          case "showResult":
+            showResult(message.result, message.metadata);
+            break;
+          case "coverageResult":
+            showCoverageResult(message);
+            break;
+          case "status":
+            showStatus(message.message, message.type);
+            break;
+          case "qualityAnalysis":
+            showQualityAnalysis(message.metrics);
+            break;
+          case "configUpdate":
+            updateConfiguration(message.config);
+            break;
+        }
+      });
 
-    function showCoverageResult(message) {
-      const covEl = document.getElementById('coverageResult');
-      
-      if (!message.success) {
-        covEl.textContent = 'Coverage failed: ' + (message.message || 'Unknown error');
-        return;
-      }
+      function updateFileList(files) {
+        const select = document.getElementById("fileSelect");
+        select.innerHTML = "";
 
-      const data = message.data;
-      let output = '';
-      
-      if (data && data.total && data.total.percent_covered !== undefined) {
-        output = `Total: ${data.total.percent_covered.toFixed(1)}%\n\n`;
-      } else {
-        output = 'Total: N/A\n\n';
-      }
+        if (!files || files.length === 0) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "No Python files found in workspace";
+          select.appendChild(option);
+          return;
+        }
 
-      // Sort files by coverage percentage
-      if (data && data.files) {
-        data.files.sort((a, b) => (b.percent_covered || 0) - (a.percent_covered || 0));
-        
-        data.files.forEach(file => {
-          output += `${file.file}: ${(file.percent_covered || 0).toFixed(1)}%\n`;
+        files.forEach((file) => {
+          const option = document.createElement("option");
+          option.value = file;
+          option.textContent = file;
+          select.appendChild(option);
         });
       }
 
-      covEl.textContent = output;
-    }
+      function showResult(result, metadata) {
+        const resultElement = document.getElementById("result");
+        const saveButton = document.getElementById("saveFile");
 
-    function showStatus(message, type = 'info') {
-      // Simple status display - you could enhance this with toast notifications
-      console.log(`Status [${type}]:`, message);
-    }
+        resultElement.textContent = result;
+        lastGeneratedResult = result;
+        lastGeneratedMeta = metadata || null;
+        saveButton.classList.remove("hidden");
 
-    function updateConfiguration(config) {
-      if (config.defaultProvider) {
-        document.getElementById('provider').value = config.defaultProvider;
-      }
-      
-      if (config.defaultTestCases) {
-        document.getElementById('testCases').value = config.defaultTestCases;
-      }
-      
-      if (config.defaultCoverage) {
-        document.getElementById('coverage').value = config.defaultCoverage;
-      }
-      
-      if (config.enableMocking !== undefined) {
-        document.getElementById('mocking').checked = config.enableMocking;
-      }
-    }
+        // Update quality indicators
+        if (metadata && metadata.qualityMetrics) {
+          updateQualityIndicators(metadata.qualityMetrics);
+        } else {
+          // Fallback to basic analysis
+          const basicMetrics = analyzeTestQualityBasic(result);
+          updateQualityIndicators(basicMetrics);
+        }
 
-    // Event listeners for buttons
-    document.getElementById('generateBtn').addEventListener('click', () => {
-      const fileName = document.getElementById('fileSelect').value;
-      if (!fileName) {
-        showStatus('Please select a Python file', 'error');
-        return;
+        // Clear coverage result when new test is generated
+        document.getElementById("coverageResult").textContent =
+          "No coverage data available";
       }
 
-      vscode.postMessage({
-        command: 'generate',
-        fileName: fileName,
-        provider: document.getElementById('provider').value,
-        mocking: document.getElementById('mocking').checked,
-        coverage: document.getElementById('coverage').value,
-        testCases: document.getElementById('testCases').value
+      function updateQualityIndicators(metrics) {
+        document.getElementById("qualityScore").textContent =
+          metrics.qualityScore;
+        document.getElementById(
+          "qualityScore"
+        ).className = `score-value ${metrics.qualityScore.toLowerCase()}`;
+
+        document.getElementById(
+          "estimatedCoverage"
+        ).textContent = `${metrics.estimatedCoverage}%`;
+        document.getElementById("testStats").textContent = metrics.testCount;
+        document.getElementById("complexityScore").textContent =
+          metrics.complexity;
+        document.getElementById("assertionCount").textContent =
+          metrics.assertionCount;
+
+        // Update feature indicators
+        document.getElementById(
+          "edgeCasesIndicator"
+        ).className = `feature-indicator ${
+          metrics.hasEdgeCases ? "present" : "missing"
+        }`;
+        document.getElementById(
+          "errorCasesIndicator"
+        ).className = `feature-indicator ${
+          metrics.hasErrorCases ? "present" : "missing"
+        }`;
+        document.getElementById(
+          "mockingIndicator"
+        ).className = `feature-indicator ${
+          metrics.hasMocking ? "present" : "missing"
+        }`;
+
+        // Show quality details if not excellent
+        const qualityDetails = document.getElementById("qualityDetails");
+        if (metrics.qualityScore !== "Excellent") {
+          qualityDetails.classList.add("visible");
+        } else {
+          qualityDetails.classList.remove("visible");
+        }
+      }
+
+      function analyzeTestQualityBasic(testCode) {
+        const testCount = (testCode.match(/def test_/g) || []).length;
+        const assertionCount = (
+          testCode.match(/assert|self\.assert|unittest\.assert/g) || []
+        ).length;
+        const hasEdgeCases = /edge|boundary|min|max|zero|empty|null/.test(
+          testCode.toLowerCase()
+        );
+        const hasErrorCases = /error|exception|try|except|raise/.test(
+          testCode.toLowerCase()
+        );
+        const hasMocking = /mock|patch|MagicMock|Mock/.test(testCode);
+
+        // Simple quality calculation
+        let qualityScore = "Poor";
+        if (testCount >= 2) qualityScore = "Fair";
+        if (testCount >= 3 && assertionCount >= testCount)
+          qualityScore = "Good";
+        if (
+          testCount >= 5 &&
+          assertionCount >= testCount * 1.5 &&
+          hasEdgeCases &&
+          hasErrorCases
+        ) {
+          qualityScore = "Excellent";
+        }
+
+        const estimatedCoverage = Math.min(
+          100,
+          testCount * 20 + (hasEdgeCases ? 10 : 0) + (hasErrorCases ? 10 : 0)
+        );
+        const complexity = Math.max(
+          1,
+          Math.round(testCode.split("\n").length / 50)
+        );
+
+        return {
+          qualityScore,
+          estimatedCoverage,
+          testCount,
+          assertionCount,
+          hasEdgeCases,
+          hasErrorCases,
+          hasMocking,
+          complexity,
+        };
+      }
+
+      function showQualityAnalysis(metrics) {
+        updateQualityIndicators(metrics);
+        showStatus("Quality analysis completed", "success");
+      }
+
+      function showCoverageResult(message) {
+        const covEl = document.getElementById("coverageResult");
+
+        if (!message.success) {
+          covEl.textContent =
+            "Coverage failed: " + (message.message || "Unknown error");
+          return;
+        }
+
+        const data = message.data;
+        let output = "";
+
+        if (data && data.total && data.total.percent_covered !== undefined) {
+          output = `Total: ${data.total.percent_covered.toFixed(1)}%\n\n`;
+        } else {
+          output = "Total: N/A\n\n";
+        }
+
+        // Sort files by coverage percentage
+        if (data && data.files) {
+          data.files.sort(
+            (a, b) => (b.percent_covered || 0) - (a.percent_covered || 0)
+          );
+
+          data.files.forEach((file) => {
+            output += `${file.file}: ${(file.percent_covered || 0).toFixed(
+              1
+            )}%\n`;
+          });
+        }
+
+        covEl.textContent = output;
+      }
+
+      function showStatus(message, type = "info") {
+        // Simple status display
+        console.log(`Status [${type}]:`, message);
+
+        // You could enhance this with toast notifications
+        const statusEl = document.createElement("div");
+        statusEl.className = `status ${type}`;
+        statusEl.textContent = message;
+
+        const controlsSection = document.querySelector(".controls-section");
+        controlsSection.insertBefore(statusEl, controlsSection.firstChild);
+
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+          if (statusEl.parentNode) {
+            statusEl.parentNode.removeChild(statusEl);
+          }
+        }, 3000);
+      }
+
+      function updateConfiguration(config) {
+        if (config.defaultProvider) {
+          document.getElementById("provider").value = config.defaultProvider;
+        }
+
+        if (config.defaultTestCases) {
+          document.getElementById("testCases").value = config.defaultTestCases;
+        }
+
+        if (config.defaultCoverage) {
+          document.getElementById("coverage").value = config.defaultCoverage;
+        }
+
+        if (config.enableMocking !== undefined) {
+          document.getElementById("mocking").checked = config.enableMocking;
+        }
+      }
+
+      function toggleAdvancedOptions(show) {
+        const advancedOptions = document.getElementById("advancedOptions");
+        const advancedToggle = document.getElementById("advancedToggle");
+
+        if (show) {
+          advancedOptions.classList.add("visible");
+          advancedToggle.textContent = "⚙️ Hide Advanced Options";
+        } else {
+          advancedOptions.classList.remove("visible");
+          advancedToggle.textContent = "⚙️ Advanced Options";
+        }
+
+        isAdvancedVisible = show;
+        vscode.setState({ advancedVisible: show });
+      }
+
+      // Event listeners for buttons
+      document.getElementById("generateBtn").addEventListener("click", () => {
+        const fileName = document.getElementById("fileSelect").value;
+        if (!fileName) {
+          showStatus("Please select a Python file", "error");
+          return;
+        }
+
+        vscode.postMessage({
+          command: "generate",
+          fileName: fileName,
+          provider: document.getElementById("provider").value,
+          mocking: document.getElementById("mocking").checked,
+          coverage: document.getElementById("coverage").value,
+          testCases: document.getElementById("testCases").value,
+          includeEdgeCases: document.getElementById("edgeCases").checked,
+          includeErrorCases: document.getElementById("errorCases").checked,
+          testStyle: document.getElementById("testStyle").value,
+        });
       });
-    });
 
-    document.getElementById('coverageBtn').addEventListener('click', () => {
-      document.getElementById('coverageResult').textContent = 'Running coverage analysis...';
-      vscode.postMessage({ command: 'generateCoverage' });
-    });
+      document.getElementById("coverageBtn").addEventListener("click", () => {
+        document.getElementById("coverageResult").textContent =
+          "Running coverage analysis...";
+        vscode.postMessage({ command: "generateCoverage" });
+      });
 
-    document.getElementById('saveFile').addEventListener('click', () => {
-      const fileName = document.getElementById('fileSelect').value;
-      if (!fileName || !lastGeneratedResult) {
-        showStatus('No test code to save', 'error');
-        return;
+      document.getElementById("analyzeBtn").addEventListener("click", () => {
+        if (!lastGeneratedResult) {
+          showStatus("No test code to analyze", "warning");
+          return;
+        }
+
+        vscode.postMessage({
+          command: "analyzeQuality",
+          testCode: lastGeneratedResult,
+          sourceCode: "", // You might want to capture source code too
+        });
+      });
+
+      document.getElementById("saveFile").addEventListener("click", () => {
+        const fileName = document.getElementById("fileSelect").value;
+        if (!fileName || !lastGeneratedResult) {
+          showStatus("No test code to save", "error");
+          return;
+        }
+
+        vscode.postMessage({
+          command: "saveFile",
+          result: lastGeneratedResult,
+          fileName: fileName,
+          metadata: lastGeneratedMeta,
+        });
+      });
+
+      document
+        .getElementById("advancedToggle")
+        .addEventListener("click", () => {
+          toggleAdvancedOptions(!isAdvancedVisible);
+        });
+
+      // Auto-resize result area
+      function adjustResultHeight() {
+        const resultSection = document.querySelector(".result-section");
+        const controlsSection = document.querySelector(".controls-section");
+        const header = document.querySelector(".header");
+        const footer = document.querySelector(".footer");
+
+        const availableHeight =
+          window.innerHeight - header.offsetHeight - footer.offsetHeight;
+        const controlsHeight = controlsSection.offsetHeight;
+
+        resultSection.style.maxHeight = `${
+          availableHeight - controlsHeight - 32
+        }px`;
       }
 
-      vscode.postMessage({
-        command: 'saveFile',
-        result: lastGeneratedResult,
-        fileName: fileName,
-        metadata: lastGeneratedMeta
-      });
-    });
-
-    // Auto-resize result area
-    function adjustResultHeight() {
-      const resultSection = document.querySelector('.result-section');
-      const controlsSection = document.querySelector('.controls-section');
-      const header = document.querySelector('.header');
-      const footer = document.querySelector('.footer');
-      
-      const availableHeight = window.innerHeight - header.offsetHeight - footer.offsetHeight;
-      const controlsHeight = controlsSection.offsetHeight;
-      
-      resultSection.style.maxHeight = `${availableHeight - controlsHeight - 32}px`;
-    }
-
-    window.addEventListener('resize', adjustResultHeight);
-    setTimeout(adjustResultHeight, 100);
-  </script>
-</body>
+      window.addEventListener("resize", adjustResultHeight);
+      setTimeout(adjustResultHeight, 100);
+    </script>
+  </body>
 </html>
