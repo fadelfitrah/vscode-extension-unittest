@@ -340,6 +340,12 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
 
     try {
       const code = fs.readFileSync(selectedFilePath, "utf8");
+      if (!code.trim()) {
+        vscode.window.showErrorMessage(
+          `File yang dipilih (${message.fileName}) kosong. Tidak ada kode untuk dibuatkan unit test.`
+        );
+        return;
+      }
       vscode.window.showInformationMessage("Generating unit tests...");
 
       // Build configuration from user input
@@ -487,7 +493,27 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private _getIconUri(webview: vscode.Webview, iconName: string): vscode.Uri {
+    try {
+      const iconPath = vscode.Uri.joinPath(
+        this._extensionUri,
+        "resources",
+        iconName
+      );
+
+      const iconUri = webview.asWebviewUri(iconPath);
+      console.log(`Icon URI for ${iconName}: ${iconUri.toString()}`);
+      return iconUri;
+    } catch (error) {
+      console.log(`Error getting icon URI for ${iconName}:`, error);
+      return webview.asWebviewUri(
+        vscode.Uri.file(path.join(this._extensionUri.fsPath, "resources", iconName))
+      );
+    }
+  }
+
   private _getWebviewContent(webview: vscode.Webview): string {
+    const iconUri = this._getIconUri(webview, "icon.png");
     const htmlPath = path.join(
       this._extensionUri.fsPath,
       "resources",
@@ -496,6 +522,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
 
     try {
       let htmlContent = fs.readFileSync(htmlPath, "utf8");
+      htmlContent = htmlContent.replace(/{ICON_URI}/g, iconUri.toString());
       return htmlContent;
     } catch (error) {
       console.log("Error reading panel.html:", error);
@@ -525,7 +552,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       <body>
         <div class="error">
           <h2>⚠️ Failed to load interface</h2>
-          <p>Please check if resources/webview.html exists</p>
+          <p>Please check if resources/panel.html exists</p>
         </div>
       </body>
       </html>
