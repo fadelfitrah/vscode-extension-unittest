@@ -222,6 +222,9 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       try {
         switch (message.command) {
           case "ready":
+            // When the webview indicates it's ready, proactively send the
+            // current Python file list so the UI can populate immediately.
+            await this._sendPythonFiles(webviewView);
             this._postMessage(webviewView, {
               command: "status",
               message: "Extension ready",
