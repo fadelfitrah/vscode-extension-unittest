@@ -91,6 +91,8 @@ interface TestGenerationConfig {
   generateSetupTeardown: boolean;
   includeParameterizedTests: boolean;
   testIsolation: boolean;
+  // Maximum desired test cases to generate
+  testCount: number;
 }
 
 interface TestQualityMetrics {
@@ -137,6 +139,7 @@ const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
   generateSetupTeardown: true,
   includeParameterizedTests: true,
   testIsolation: true,
+  testCount: 3,
 };
 
 class UnittestViewProvider implements vscode.WebviewViewProvider {
@@ -356,7 +359,13 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         ...DEFAULT_TEST_CONFIG,
         testFramework: message.framework || "unittest",
         coverageTarget: parseInt(message.coverage || "80", 10),
+        // number of test cases requested by the UI (fall back to default)
+        testCount: parseInt(
+          String(message.testCases || DEFAULT_TEST_CONFIG.testCount),
+          10
+        ),
         includeEdgeCases: message.includeEdgeCases !== false,
+        testStyle: message.testStyle || DEFAULT_TEST_CONFIG.testStyle,
         includeErrorCases: message.includeErrorCases !== false,
         autoMockExternalDeps: !!message.mocking,
       };
@@ -510,7 +519,9 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     } catch (error) {
       console.log(`Error getting icon URI for ${iconName}:`, error);
       return webview.asWebviewUri(
-        vscode.Uri.file(path.join(this._extensionUri.fsPath, "resources", iconName))
+        vscode.Uri.file(
+          path.join(this._extensionUri.fsPath, "resources", iconName)
+        )
       );
     }
   }
@@ -602,10 +613,10 @@ async function generateUnitTest(
       url: "https://openrouter.ai/api/v1/chat/completions",
       model: "openrouter/sherlock-dash-alpha",
     },
-    kimi: {
-      apiKey: process.env.GROQ_API_KEY,
-      url: "https://api.groq.com/openai/v1/chat/completions",
-      model: "moonshotai/kimi-k2-instruct",
+    wizardlm: {
+      apiKey: process.env.OPENROUTER_API_KEY,
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      model: "microsoft/wizardlm-2-8x22b",
     },
     deepseek: {
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -676,11 +687,16 @@ async function generateUnitTest(
 }
 
 // Build comprehensive prompt with quality requirements
-function buildTestPrompt(
+export function buildTestPrompt(
   fileName: string,
   code: string,
   config: TestGenerationConfig
 ): string {
+  const maxTests =
+    Number.isInteger(config.testCount) && config.testCount > 0
+      ? config.testCount
+      : DEFAULT_TEST_CONFIG.testCount;
+
   return `
 You are an expert Python test engineer. Generate high-quality unit tests following these STRICT requirements:
 
@@ -689,6 +705,7 @@ You are an expert Python test engineer. Generate high-quality unit tests followi
 - Test Style: ${config.testStyle}
 - Coverage Target: ${config.coverageTarget}%
 - Mocking Framework: ${config.mockingFramework}
+- Max Test Cases: ${maxTests}
 - Include Edge Cases: ${config.includeEdgeCases}
 - Include Error Cases: ${config.includeErrorCases}
 - Max Test Complexity: ${config.maxFunctionComplexity}
@@ -725,14 +742,15 @@ ${
   # Assert - verify outcomes`
 }
 
-## MOCKING STRATEGY:
 ${
   config.autoMockExternalDeps
-    ? "- Automatically mock all external dependencies"
-    : "- Mock only when necessary"
-}
+    ? `## MOCKING STRATEGY:
+- Automatically mock all external dependencies
 - Use ${config.mockingFramework} for mocking
 - Mock external API calls, database operations, file I/O
+`
+    : ""
+}
 
 ## SPECIFIC INSTRUCTIONS:
 1. Cover happy path scenarios

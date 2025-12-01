@@ -454,7 +454,7 @@
     <div class="container">
       <!-- Header -->
       <div class="header">
-        <img src="{ICON_URI}" alt="Icon">
+        <img src="{ICON_URI}" alt="Icon" />
         <h2>Test Generator</h2>
       </div>
 
@@ -523,7 +523,7 @@
               <option value="metalamma">Meta Llama</option>
               <option value="qwen">Qwen</option>
               <option value="dash">Sherloc Dash</option>
-              <option value="kimi">Kimi</option>
+              <option value="wizardlm">LizardLM</option>
               <option value="deepseek">DeepSeek</option>
             </select>
           </div>
@@ -566,7 +566,13 @@
             <div class="grid-2">
               <div class="form-group">
                 <label for="testCases">Test Cases</label>
-                <input id="testCases" type="number" value="3" min="1" max="10" />
+                <input
+                  id="testCases"
+                  type="number"
+                  value="3"
+                  min="1"
+                  max="10"
+                />
               </div>
               <div class="form-group">
                 <label for="coverage">Coverage Target</label>
@@ -625,19 +631,19 @@
 
       // Initialize when DOM is loaded
       window.addEventListener("DOMContentLoaded", () => {
-          // notify host that the webview is ready first (avoid race-condition
-          // where webview posts while host hasn't finished setting up message handlers)
-          vscode.postMessage({ command: "ready" });
+        // notify host that the webview is ready first (avoid race-condition
+        // where webview posts while host hasn't finished setting up message handlers)
+        vscode.postMessage({ command: "ready" });
 
-          // then request the file list after a brief delay so the extension
-          // host has time to set up message handlers and watchers
-          setTimeout(() => {
-            try {
-              vscode.postMessage({ command: "requestFileList" });
-            } catch (e) {
-              console.error("Failed to post requestFileList message:", e);
-            }
-          }, 120);
+        // then request the file list after a brief delay so the extension
+        // host has time to set up message handlers and watchers
+        setTimeout(() => {
+          try {
+            vscode.postMessage({ command: "requestFileList" });
+          } catch (e) {
+            console.error("Failed to post requestFileList message:", e);
+          }
+        }, 120);
 
         // Load saved state
         const state = vscode.getState();
