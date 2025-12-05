@@ -2,7 +2,6 @@ import * as vscode from "vscode";
 import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
-// runtime-safe fetch: prefer globalThis.fetch, otherwise try to require node-fetch at runtime
 let runtimeFetch: any = (globalThis as any).fetch;
 import { spawn } from "child_process";
 import * as os from "os";
@@ -15,7 +14,6 @@ export function activate(context: vscode.ExtensionContext) {
   console.log("generator-vscode-unittest: activate() called");
 
   try {
-    // Register the WebviewViewProvider
     const provider = new UnittestViewProvider(context.extensionUri);
 
     context.subscriptions.push(
