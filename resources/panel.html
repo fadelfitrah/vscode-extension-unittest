@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Python Unit Test Generator</title>
+    <title>Multi-Language Unit Test Generator</title>
     <style>
       :root {
         --bg-color: #1e1e1e;
@@ -17,6 +17,18 @@
         --warning: #ffcc02;
         --error: #f48771;
         --header-bg: #2d2d30;
+        --python-color: #3572a5;
+        --javascript-color: #f1e05a;
+        --typescript-color: #3178c6;
+        --java-color: #b07219;
+        --csharp-color: #178600;
+        --go-color: #00add8;
+        --rust-color: #dea584;
+        --php-color: #4f5d95;
+        --ruby-color: #701516;
+        --kotlin-color: #f18e33;
+        --swift-color: #f05138;
+        --cpp-color: #f34b7d;
       }
 
       * {
@@ -47,9 +59,15 @@
       .header {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         background: var(--header-bg);
         padding: 12px 16px;
         border-bottom: 1px solid var(--border-color);
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
       }
 
       .header img {
@@ -62,6 +80,61 @@
         color: #018020;
         font-size: 1.1rem;
         font-weight: 600;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .language-badge {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        background: var(--accent);
+        color: white;
+      }
+
+      .language-badge.python {
+        background: var(--python-color);
+      }
+      .language-badge.javascript {
+        background: var(--javascript-color);
+        color: #333;
+      }
+      .language-badge.typescript {
+        background: var(--typescript-color);
+      }
+      .language-badge.java {
+        background: var(--java-color);
+      }
+      .language-badge.csharp {
+        background: var(--csharp-color);
+      }
+      .language-badge.go {
+        background: var(--go-color);
+      }
+      .language-badge.rust {
+        background: var(--rust-color);
+        color: #333;
+      }
+      .language-badge.php {
+        background: var(--php-color);
+      }
+      .language-badge.ruby {
+        background: var(--ruby-color);
+      }
+      .language-badge.kotlin {
+        background: var(--kotlin-color);
+        color: #333;
+      }
+      .language-badge.swift {
+        background: var(--swift-color);
+      }
+      .language-badge.cpp {
+        background: var(--cpp-color);
       }
 
       .result-section {
@@ -149,7 +222,8 @@
       }
 
       select,
-      input[type="number"] {
+      input[type="number"],
+      input[type="text"] {
         width: 100%;
         background: var(--bg-color);
         border: 1px solid var(--border-color);
@@ -190,6 +264,12 @@
       .grid-3 {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+      }
+
+      .grid-4 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
         gap: 6px;
       }
 
@@ -238,6 +318,13 @@
       .buttons {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 12px 0;
+      }
+
+      .buttons-single {
+        display: grid;
+        grid-template-columns: 1fr;
         gap: 8px;
         margin: 12px 0;
       }
@@ -412,6 +499,9 @@
         cursor: pointer;
         padding: 4px 0;
         text-align: left;
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
 
       .advanced-toggle:hover {
@@ -425,10 +515,62 @@
         border-radius: 4px;
         padding: 8px;
         margin-top: 8px;
+        margin-bottom: 12px;
       }
 
       .advanced-options.visible {
         display: block;
+      }
+
+      .file-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+      }
+
+      .file-language-badge {
+        padding: 1px 6px;
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        min-width: 60px;
+        text-align: center;
+      }
+
+      .file-name {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .language-selector {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .lang-btn {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        border: 1px solid var(--border-color);
+        background: var(--card-bg);
+        color: var(--text-color);
+        flex: 1;
+        text-align: center;
+      }
+
+      .lang-btn.active {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: white;
+      }
+
+      .lang-btn:hover:not(.active) {
+        background: var(--border-color);
       }
 
       /* Scrollbar styling */
@@ -448,14 +590,41 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #555;
       }
+
+      .language-select-container {
+        position: relative;
+      }
+
+      .language-select-container select {
+        padding-right: 24px;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+      }
+
+      .language-select-container::after {
+        content: "▼";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: var(--text-muted);
+        font-size: 0.7rem;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <!-- Header -->
       <div class="header">
-        <img src="{ICON_URI}" alt="Icon" />
-        <h2>Test Generator</h2>
+        <div class="header-left">
+          <img src="{ICON_URI}" alt="Icon" />
+          <h2>Multi-Language Test Generator</h2>
+        </div>
+        <div class="header-right">
+          <div id="currentLanguageBadge" class="language-badge">PYTHON</div>
+        </div>
       </div>
 
       <!-- Main Result Area (Top) -->
@@ -502,7 +671,7 @@
 
         <h3>Generated Test Code</h3>
         <div id="result" class="result">
-          // Select a Python file and click Generate to create unit tests
+          // Select a source file and click Generate to create unit tests
         </div>
       </div>
 
@@ -510,20 +679,48 @@
       <div class="fixed-controls">
         <div class="grid-2">
           <div class="form-group">
-            <label for="fileSelect">Python File</label>
+            <label for="fileSelect">Source File</label>
             <select id="fileSelect">
-              <option value="">Loading Python files...</option>
+              <option value="">Loading files...</option>
+            </select>
+          </div>
+
+          <div class="form-group language-select-container">
+            <label for="language">Programming Language</label>
+            <select id="language">
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="java">Java</option>
+              <option value="csharp">C#</option>
+              <option value="go">Go</option>
+              <option value="rust">Rust</option>
+              <option value="php">PHP</option>
+              <option value="ruby">Ruby</option>
+              <option value="kotlin">Kotlin</option>
+              <option value="swift">Swift</option>
+              <option value="cpp">C++</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="testFramework">Test Framework</label>
+            <select id="testFramework">
+              <option value="unittest">unittest</option>
+              <option value="pytest">pytest</option>
             </select>
           </div>
 
           <div class="form-group">
             <label for="provider">AI Provider</label>
             <select id="provider">
-              <option value="openai">OpenAI</option>
+              <option value="openai">GPT-OSS-20B</option>
               <option value="metalamma">Meta Llama</option>
-              <option value="qwen">Qwen</option>
-              <option value="dash">Sherloc Dash</option>
-              <option value="wizardlm">LizardLM</option>
+              <option value="groq">Groq</option>
+              <option value="phi3">Microsoft/Phi-3</option>
+              <option value="codexmini">CodeX-Mini</option>
               <option value="deepseek">DeepSeek</option>
             </select>
           </div>
@@ -532,7 +729,7 @@
         <div class="buttons">
           <button id="generateBtn" class="btn">Generate Tests</button>
           <button id="togglePanelBtn" class="btn btn-secondary">
-            ⚙️ Show Options
+            ⚙️ Advanced Options
           </button>
         </div>
       </div>
@@ -540,14 +737,10 @@
       <!-- Slide-up Panel -->
       <div class="slide-panel" id="slidePanel">
         <div class="slide-panel-handle" id="panelHandle">
-          <span>▼ Options Panel</span>
+          <span>▼ Advanced Configuration</span>
         </div>
         <div class="slide-panel-content">
-          <button id="advancedToggle" class="advanced-toggle">
-            ⚙️ Advanced Options
-          </button>
-
-          <div id="advancedOptions" class="advanced-options">
+          <div class="advanced-options visible">
             <div class="grid-3">
               <div class="checkbox-group">
                 <input id="edgeCases" type="checkbox" checked />
@@ -586,27 +779,38 @@
               </div>
             </div>
 
-            <div class="form-group">
-              <label for="testStyle">Test Style</label>
-              <select id="testStyle">
-                <option value="given_when_then">Given-When-Then</option>
-                <option value="arrange_act_assert">Arrange-Act-Assert</option>
-              </select>
+            <div class="grid-2">
+              <div class="form-group">
+                <label for="testStyle">Test Style</label>
+                <select id="testStyle">
+                  <option value="given_when_then">Given-When-Then</option>
+                  <option value="arrange_act_assert">Arrange-Act-Assert</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="mockingFramework">Mocking Framework</label>
+                <select id="mockingFramework">
+                  <option value="unittest.mock">unittest.mock</option>
+                  <option value="pytest-mock">pytest-mock</option>
+                  <option value="freezegun">freezegun</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="buttons-single">
+              <button id="saveFile" class="btn btn-success hidden">
+                💾 Save Test File
+              </button>
             </div>
           </div>
 
           <div class="buttons">
-            <button id="analyzeBtn" class="btn btn-warning">
-              Analyze Quality
-            </button>
-            <button id="saveFile" class="btn btn-success hidden">
-              Save Test File
-            </button>
-          </div>
-
-          <div class="buttons">
             <button id="coverageBtn" class="btn btn-secondary">
-              Run Coverage
+              📊 Run Coverage
+            </button>
+            <button id="analyzeBtn" class="btn btn-warning">
+              🔍 Analyze Quality
             </button>
           </div>
 
@@ -619,24 +823,28 @@
         </div>
       </div>
 
-      <div class="footer">Python Unit Test Generator © 2025</div>
+      <div class="footer">Multi-Language Unit Test Generator © 2025</div>
     </div>
 
     <script>
       const vscode = acquireVsCodeApi();
       let lastGeneratedResult = "";
       let lastGeneratedMeta = null;
-      let isAdvancedVisible = false;
       let isPanelOpen = false;
+      let currentLanguage = "python";
+      let currentFileList = [];
+      let languageFrameworks = {};
+      const LANGUAGE_FRAMEWORKS = { LANGUAGE_FRAMEWORKS };
 
       // Initialize when DOM is loaded
       window.addEventListener("DOMContentLoaded", () => {
-        // notify host that the webview is ready first (avoid race-condition
-        // where webview posts while host hasn't finished setting up message handlers)
+        // Initialize language frameworks from injected data
+        languageFrameworks = LANGUAGE_FRAMEWORKS || {};
+
+        // Notify host that the webview is ready
         vscode.postMessage({ command: "ready" });
 
-        // then request the file list after a brief delay so the extension
-        // host has time to set up message handlers and watchers
+        // Request file list after a brief delay
         setTimeout(() => {
           try {
             vscode.postMessage({ command: "requestFileList" });
@@ -648,15 +856,21 @@
         // Load saved state
         const state = vscode.getState();
         if (state) {
-          if (state.advancedVisible !== undefined) {
-            isAdvancedVisible = state.advancedVisible;
-            toggleAdvancedOptions(isAdvancedVisible);
-          }
           if (state.panelOpen !== undefined) {
             isPanelOpen = state.panelOpen;
             toggleSlidePanel(isPanelOpen);
           }
+          if (state.language) {
+            document.getElementById("language").value = state.language;
+            currentLanguage = state.language;
+            updateLanguageBadge();
+            updateFrameworkOptions();
+          }
         }
+
+        // Initialize UI
+        updateLanguageBadge();
+        updateFrameworkOptions();
       });
 
       // Handle messages from extension
@@ -682,47 +896,127 @@
           case "configUpdate":
             updateConfiguration(message.config);
             break;
+          case "languageFrameworks":
+            updateLanguageFrameworkOptions(
+              message.language,
+              message.frameworks
+            );
+            break;
+          case "loadCode":
+            updateCurrentFileInfo(message);
+            break;
         }
       });
 
       function updateFileList(files) {
-        // Defensive logging for debugging: helps identify payload format
         console.log("updateFileList called with:", files);
         const select = document.getElementById("fileSelect");
         select.innerHTML = "";
+        currentFileList = files || [];
 
         if (!files || files.length === 0) {
           const option = document.createElement("option");
           option.value = "";
-          option.textContent = "No Python files found in workspace";
+          option.textContent = "No source files found in workspace";
           select.appendChild(option);
           return;
         }
 
-        // Normalize items and allow both strings and simple objects
+        // Normalize file items
         const normalized = files
-          .map((f) => {
-            if (!f) return "";
-            if (typeof f === "string") return f.trim();
-            // common possible shapes: { path }, { uri }, { fsPath }
-            if (typeof f === "object") {
-              return f.path || f.uri || f.fsPath || f.file || "";
+          .map((item) => {
+            if (typeof item === "string") {
+              return { path: item, language: detectLanguageFromPath(item) };
             }
-            return String(f);
+            return {
+              path: item.path || item.uri || item.fsPath || item.file || "",
+              language:
+                item.language || detectLanguageFromPath(item.path || ""),
+            };
           })
-          .filter(Boolean);
+          .filter((item) => item.path);
 
-        // Populate select; show only the tail in visible text but keep
-        // the whole path in the value; add title tooltip for clarity
-        normalized.forEach((filePath) => {
-          const option = document.createElement("option");
-          option.value = filePath;
-          // show last segment for readability, keep full path as title
-          const parts = filePath.replace(/\\\\/g, "/").split("/");
-          option.textContent = parts.slice(-1)[0] || filePath;
-          option.title = filePath;
-          select.appendChild(option);
+        // Create optgroup for each language
+        const languageGroups = {};
+        normalized.forEach((item) => {
+          if (!languageGroups[item.language]) {
+            languageGroups[item.language] = [];
+          }
+          languageGroups[item.language].push(item);
         });
+
+        // Sort languages alphabetically
+        const sortedLanguages = Object.keys(languageGroups).sort();
+
+        // Create optgroups
+        sortedLanguages.forEach((lang) => {
+          const optgroup = document.createElement("optgroup");
+          optgroup.label = lang.charAt(0).toUpperCase() + lang.slice(1);
+
+          languageGroups[lang].forEach((item) => {
+            const option = document.createElement("option");
+            option.value = item.path;
+            option.textContent = getFileNameFromPath(item.path);
+            option.title = item.path;
+            option.dataset.language = lang;
+
+            // Style option based on language
+            option.style.color = getLanguageColor(lang);
+            optgroup.appendChild(option);
+          });
+
+          select.appendChild(optgroup);
+        });
+      }
+
+      function detectLanguageFromPath(path) {
+        const ext = path.split(".").pop().toLowerCase();
+        const extensionMap = {
+          py: "python",
+          js: "javascript",
+          jsx: "javascript",
+          ts: "typescript",
+          tsx: "typescript",
+          java: "java",
+          cs: "csharp",
+          go: "go",
+          rs: "rust",
+          php: "php",
+          rb: "ruby",
+          kt: "kotlin",
+          kts: "kotlin",
+          swift: "swift",
+          cpp: "cpp",
+          cc: "cpp",
+          cxx: "cpp",
+          h: "cpp",
+          hpp: "cpp",
+          hxx: "cpp",
+        };
+        return extensionMap[ext] || "python";
+      }
+
+      function getFileNameFromPath(path) {
+        const parts = path.replace(/\\\\/g, "/").split("/");
+        return parts.slice(-1)[0] || path;
+      }
+
+      function getLanguageColor(language) {
+        const colorMap = {
+          python: "#3572A5",
+          javascript: "#f1e05a",
+          typescript: "#3178c6",
+          java: "#b07219",
+          csharp: "#178600",
+          go: "#00ADD8",
+          rust: "#dea584",
+          php: "#4F5D95",
+          ruby: "#701516",
+          kotlin: "#F18E33",
+          swift: "#F05138",
+          cpp: "#f34b7d",
+        };
+        return colorMap[language] || "#cccccc";
       }
 
       function showResult(result, metadata) {
@@ -734,12 +1028,18 @@
         lastGeneratedMeta = metadata || null;
         saveButton.classList.remove("hidden");
 
+        // Update current language from metadata
+        if (metadata && metadata.language) {
+          currentLanguage = metadata.language;
+          document.getElementById("language").value = currentLanguage;
+          updateLanguageBadge();
+        }
+
         // Update quality indicators
         if (metadata && metadata.qualityMetrics) {
           updateQualityIndicators(metadata.qualityMetrics);
         } else {
-          // Fallback to basic analysis
-          const basicMetrics = analyzeTestQualityBasic(result);
+          const basicMetrics = analyzeTestQualityBasic(result, currentLanguage);
           updateQualityIndicators(basicMetrics);
         }
 
@@ -790,40 +1090,94 @@
         }
       }
 
-      function analyzeTestQualityBasic(testCode) {
-        const testCount = (testCode.match(/def test_/g) || []).length;
-        const assertionCount = (
-          testCode.match(/assert|self\.assert|unittest\.assert/g) || []
-        ).length;
-        const hasEdgeCases = /edge|boundary|min|max|zero|empty|null/.test(
-          testCode.toLowerCase()
-        );
-        const hasErrorCases = /error|exception|try|except|raise/.test(
-          testCode.toLowerCase()
-        );
-        const hasMocking = /mock|patch|MagicMock|Mock/.test(testCode);
+      function analyzeTestQualityBasic(testCode, language = "python") {
+        // Language-specific patterns
+        const patterns = {
+          python: {
+            testFunction: /\bdef\s+test_/g,
+            assertion: /\bassert\s|\bself\.assert|\bunittest\.assert/g,
+            mocking: /\bmock|patch|MagicMock|Mock\b/,
+          },
+          javascript: {
+            testFunction: /\b(it|test)\(/g,
+            assertion: /\bexpect\(|\bassert\(|\bshould\.equal/g,
+            mocking: /\bjest\.mock|\bsinon|\bMock\b/,
+          },
+          typescript: {
+            testFunction: /\b(it|test)\(/g,
+            assertion: /\bexpect\(|\bassert\(|\bshould\.equal/g,
+            mocking: /\bjest\.mock|\bsinon|\bMock\b/,
+          },
+          java: {
+            testFunction: /\b@Test\b|\bpublic void test/g,
+            assertion: /\bassertThat\(|\bassertEquals\(|\bassertTrue\(/g,
+            mocking: /\b@Mock|\bMockito/,
+          },
+          csharp: {
+            testFunction: /\b\[Test\]|\bpublic void Test/g,
+            assertion: /\bAssert\.Equal\(|\bAssert\.True\(|\bAssert\.False\(/g,
+            mocking: /\bMock<|\bIt\.IsAny/,
+          },
+          go: {
+            testFunction: /\bfunc Test\w+\(/g,
+            assertion: /\bt\.Error\(|\bt\.Fatal\(|\bt\.Fatalf\(/g,
+            mocking: /\bNewMock|\bgomock/,
+          },
+        };
 
-        // Simple quality calculation
+        const langPatterns = patterns[language] || patterns.python;
+        const lower = testCode.toLowerCase();
+
+        const testCount = (testCode.match(langPatterns.testFunction) || [])
+          .length;
+        const assertionCount = (testCode.match(langPatterns.assertion) || [])
+          .length;
+        const hasEdgeCases =
+          /\bedge|\bboundary|\bmin\b|\bmax\b|\bzero|\bempty|\bnull\b/.test(
+            lower
+          );
+        const hasErrorCases =
+          /\berror|\bexception|\btry\b|\bcatch\b|\bthrow\b/.test(lower);
+        const hasMocking = testCode.match(langPatterns.mocking) !== null;
+
+        // Complexity estimation
+        const controlStructures = (
+          testCode.match(
+            /\bif\b|\belse\b|\bfor\b|\bwhile\b|\btry\b|\bcatch\b|\bswitch\b/g
+          ) || []
+        ).length;
+        const cognitivePenalty = Math.floor(testCode.split("\n").length / 40);
+        const complexity = Math.max(1, controlStructures + cognitivePenalty);
+
+        // Quality classification
         let qualityScore = "Poor";
-        if (testCount >= 2) qualityScore = "Fair";
-        if (testCount >= 3 && assertionCount >= testCount)
+        if (testCount >= 2 && assertionCount >= testCount) {
+          qualityScore = "Fair";
+        }
+        if (
+          testCount >= 3 &&
+          assertionCount >= testCount * 1.2 &&
+          (hasEdgeCases || hasErrorCases)
+        ) {
           qualityScore = "Good";
+        }
         if (
           testCount >= 5 &&
           assertionCount >= testCount * 1.5 &&
           hasEdgeCases &&
-          hasErrorCases
+          hasErrorCases &&
+          hasMocking
         ) {
           qualityScore = "Excellent";
         }
 
+        // Estimated coverage
         const estimatedCoverage = Math.min(
           100,
-          testCount * 20 + (hasEdgeCases ? 10 : 0) + (hasErrorCases ? 10 : 0)
-        );
-        const complexity = Math.max(
-          1,
-          Math.round(testCode.split("\n").length / 50)
+          testCount * 15 +
+            assertionCount * 3 +
+            (hasEdgeCases ? 10 : 0) +
+            (hasErrorCases ? 10 : 0)
         );
 
         return {
@@ -877,10 +1231,8 @@
       }
 
       function showStatus(message, type = "info") {
-        // Simple status display
         console.log(`Status [${type}]:`, message);
 
-        // You could enhance this with toast notifications
         const statusEl = document.createElement("div");
         statusEl.className = `status ${type}`;
         statusEl.textContent = message;
@@ -914,22 +1266,6 @@
         }
       }
 
-      function toggleAdvancedOptions(show) {
-        const advancedOptions = document.getElementById("advancedOptions");
-        const advancedToggle = document.getElementById("advancedToggle");
-
-        if (show) {
-          advancedOptions.classList.add("visible");
-          advancedToggle.textContent = "⚙️ Hide Advanced Options";
-        } else {
-          advancedOptions.classList.remove("visible");
-          advancedToggle.textContent = "⚙️ Advanced Options";
-        }
-
-        isAdvancedVisible = show;
-        vscode.setState({ advancedVisible: show });
-      }
-
       function toggleSlidePanel(open) {
         const slidePanel = document.getElementById("slidePanel");
         const toggleBtn = document.getElementById("togglePanelBtn");
@@ -939,50 +1275,126 @@
           toggleBtn.textContent = "⚙️ Hide Options";
         } else {
           slidePanel.classList.remove("open");
-          toggleBtn.textContent = "⚙️ Show Options";
+          toggleBtn.textContent = "⚙️ Advanced Options";
         }
 
         isPanelOpen = open;
         vscode.setState({ panelOpen: open });
       }
 
-      // Event listeners for buttons
+      function updateLanguageBadge() {
+        const badge = document.getElementById("currentLanguageBadge");
+        badge.textContent = currentLanguage.toUpperCase();
+        badge.className = `language-badge ${currentLanguage}`;
+      }
+
+      function updateFrameworkOptions() {
+        const frameworks = languageFrameworks[currentLanguage] || {
+          testFrameworks: ["custom"],
+          mockingFrameworks: ["custom"],
+        };
+
+        // Update test framework dropdown
+        const testFrameworkSelect = document.getElementById("testFramework");
+        testFrameworkSelect.innerHTML = "";
+        frameworks.testFrameworks.forEach((framework) => {
+          const option = document.createElement("option");
+          option.value = framework;
+          option.textContent = framework;
+          testFrameworkSelect.appendChild(option);
+        });
+
+        // Update mocking framework dropdown
+        const mockingFrameworkSelect =
+          document.getElementById("mockingFramework");
+        mockingFrameworkSelect.innerHTML = "";
+        frameworks.mockingFrameworks.forEach((framework) => {
+          const option = document.createElement("option");
+          option.value = framework;
+          option.textContent = framework;
+          mockingFrameworkSelect.appendChild(option);
+        });
+
+        // Request updated frameworks from extension
+        vscode.postMessage({
+          command: "getLanguageFrameworks",
+          language: currentLanguage,
+        });
+      }
+
+      function updateLanguageFrameworkOptions(language, frameworks) {
+        if (language === currentLanguage) {
+          // Update UI with fresh framework data
+          languageFrameworks[language] = frameworks;
+          updateFrameworkOptions();
+        }
+      }
+
+      function updateCurrentFileInfo(message) {
+        if (message.fileName && message.language) {
+          currentLanguage = message.language;
+          document.getElementById("language").value = currentLanguage;
+          updateLanguageBadge();
+          updateFrameworkOptions();
+
+          // Save state
+          vscode.setState({ language: currentLanguage });
+        }
+      }
+
+      // Event listeners
       document.getElementById("generateBtn").addEventListener("click", () => {
         const fileName = document.getElementById("fileSelect").value;
         if (!fileName) {
-          showStatus("Please select a Python file", "error");
+          showStatus("Please select a source file", "error");
           return;
         }
+
+        const language = document.getElementById("language").value;
+        currentLanguage = language;
+        updateLanguageBadge();
+        updateFrameworkOptions();
 
         vscode.postMessage({
           command: "generate",
           fileName: fileName,
+          language: language,
           provider: document.getElementById("provider").value,
+          framework: document.getElementById("testFramework").value,
           mocking: document.getElementById("mocking").checked,
+          mockingFramework: document.getElementById("mockingFramework").value,
           coverage: document.getElementById("coverage").value,
           testCases: document.getElementById("testCases").value,
           includeEdgeCases: document.getElementById("edgeCases").checked,
           includeErrorCases: document.getElementById("errorCases").checked,
           testStyle: document.getElementById("testStyle").value,
         });
+
+        // Save language state
+        vscode.setState({ language: currentLanguage });
       });
 
       document.getElementById("coverageBtn").addEventListener("click", () => {
         document.getElementById("coverageResult").textContent =
           "Running coverage analysis...";
-        vscode.postMessage({ command: "generateCoverage" });
+        vscode.postMessage({
+          command: "generateCoverage",
+          language: currentLanguage,
+        });
       });
 
       document.getElementById("analyzeBtn").addEventListener("click", () => {
-        if (!lastGeneratedResult) {
-          showStatus("No test code to analyze", "warning");
+        const testCode = lastGeneratedResult;
+        if (!testCode) {
+          showStatus("No test code to analyze", "error");
           return;
         }
 
         vscode.postMessage({
           command: "analyzeQuality",
-          testCode: lastGeneratedResult,
-          sourceCode: "", // You might want to capture source code too
+          testCode: testCode,
+          sourceCode: "",
+          language: currentLanguage,
         });
       });
 
@@ -997,15 +1409,10 @@
           command: "saveFile",
           result: lastGeneratedResult,
           fileName: fileName,
+          language: currentLanguage,
           metadata: lastGeneratedMeta,
         });
       });
-
-      document
-        .getElementById("advancedToggle")
-        .addEventListener("click", () => {
-          toggleAdvancedOptions(!isAdvancedVisible);
-        });
 
       document
         .getElementById("togglePanelBtn")
@@ -1015,6 +1422,15 @@
 
       document.getElementById("panelHandle").addEventListener("click", () => {
         toggleSlidePanel(!isPanelOpen);
+      });
+
+      document.getElementById("language").addEventListener("change", (e) => {
+        currentLanguage = e.target.value;
+        updateLanguageBadge();
+        updateFrameworkOptions();
+
+        // Save language state
+        vscode.setState({ language: currentLanguage });
       });
 
       // Auto-resize result area

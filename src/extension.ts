@@ -14,11 +14,10 @@ export function activate(context: vscode.ExtensionContext) {
   console.log("generator-vscode-unittest: activate() called");
 
   try {
-    const provider = new UnittestViewProvider(context.extensionUri);
-
+    const provider = new UnitTestViewProvider(context.extensionUri);
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(
-        UnittestViewProvider.viewType,
+        UnitTestViewProvider.viewType,
         provider,
         {
           webviewOptions: {
@@ -36,11 +35,11 @@ export function activate(context: vscode.ExtensionContext) {
         "generator-vscode-unittest.openPanel",
         async () => {
           try {
-            await vscode.commands.executeCommand("unittestGeneratorView.focus");
+            await vscode.commands.executeCommand("unitTestGeneratorView.focus");
           } catch (error) {
             console.error("Failed to focus view:", error);
             vscode.window.showInformationMessage(
-              "Please click the Unittest Generator icon in the activity bar."
+              "Please click the Unit Test Generator icon in the activity bar."
             );
           }
         }
@@ -64,8 +63,9 @@ interface TestGenerationConfig {
   temperature: number;
   maxTokens: number;
 
-  // Test Quality Standards
-  testFramework: "unittest";
+  // Language and Framework Configuration
+  programmingLanguage: string;
+  testFramework: string;
   testStyle: "given_when_then" | "arrange_act_assert";
   includeAssertions: boolean;
   includeEdgeCases: boolean;
@@ -76,7 +76,7 @@ interface TestGenerationConfig {
   includeBranchCoverage: boolean;
 
   // Mocking Strategy
-  mockingFramework: "unittest.mock" | "freezegun";
+  mockingFramework: string;
   autoMockExternalDeps: boolean;
 
   // Code Quality Rules
@@ -102,9 +102,105 @@ interface TestQualityMetrics {
   hasErrorCases: boolean;
   hasMocking: boolean;
   complexity: number;
+  smells?: { [key: string]: boolean };
+  smellCount?: number;
+  estimatedBranchesCoverage?: number;
+  estimatedMutationScore?: number;
 }
 
-// Default Configuration
+// Language and Framework Mappings
+const LANGUAGE_FRAMEWORKS: Record<
+  string,
+  { testFrameworks: string[]; mockingFrameworks: string[] }
+> = {
+  python: {
+    testFrameworks: ["unittest", "pytest", "nose"],
+    mockingFrameworks: ["unittest.mock", "pytest-mock", "freezegun"],
+  },
+  javascript: {
+    testFrameworks: ["jest", "mocha", "jasmine", "vitest"],
+    mockingFrameworks: ["jest", "sinon", "testdouble"],
+  },
+  typescript: {
+    testFrameworks: ["jest", "mocha", "jasmine", "vitest"],
+    mockingFrameworks: ["jest", "sinon", "testdouble"],
+  },
+  java: {
+    testFrameworks: ["junit", "testng", "mockito"],
+    mockingFrameworks: ["mockito", "easymock", "powermock"],
+  },
+  csharp: {
+    testFrameworks: ["nunit", "xunit", "mstest"],
+    mockingFrameworks: ["moq", "nsubstitute", "fakeiteasy"],
+  },
+  go: {
+    testFrameworks: ["testing", "testify", "ginkgo"],
+    mockingFrameworks: ["gomock", "testify/mock"],
+  },
+  rust: {
+    testFrameworks: ["builtin", "proptest", "quickcheck"],
+    mockingFrameworks: ["mockall", "mockito"],
+  },
+  php: {
+    testFrameworks: ["phpunit", "pest"],
+    mockingFrameworks: ["mockery", "prophecy"],
+  },
+  ruby: {
+    testFrameworks: ["minitest", "rspec"],
+    mockingFrameworks: ["rspec-mocks", "mocha"],
+  },
+  kotlin: {
+    testFrameworks: ["kotest", "junit", "spek"],
+    mockingFrameworks: ["mockk", "mockito"],
+  },
+  swift: {
+    testFrameworks: ["xctest", "quick", "nimble"],
+    mockingFrameworks: ["cuckoo", "swiftmock"],
+  },
+  cpp: {
+    testFrameworks: ["gtest", "catch2", "doctest"],
+    mockingFrameworks: ["gmock", "trompeloeil"],
+  },
+};
+
+// Default Configuration per Language
+const DEFAULT_CONFIG_BY_LANGUAGE: Record<
+  string,
+  Partial<TestGenerationConfig>
+> = {
+  python: {
+    testFramework: "unittest",
+    mockingFramework: "unittest.mock",
+    requireDocstrings: true,
+  },
+  javascript: {
+    testFramework: "jest",
+    mockingFramework: "jest",
+    requireDocstrings: true,
+  },
+  typescript: {
+    testFramework: "jest",
+    mockingFramework: "jest",
+    requireDocstrings: true,
+  },
+  java: {
+    testFramework: "junit",
+    mockingFramework: "mockito",
+    requireDocstrings: true,
+  },
+  csharp: {
+    testFramework: "nunit",
+    mockingFramework: "moq",
+    requireDocstrings: true,
+  },
+  go: {
+    testFramework: "testing",
+    mockingFramework: "gomock",
+    requireDocstrings: true,
+  },
+};
+
+// Base Default Configuration
 const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
   // AI Provider
   aiProvider: "openai",
@@ -112,7 +208,8 @@ const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
   temperature: 0.1,
   maxTokens: 2000,
 
-  // Test Quality
+  // Language and Framework
+  programmingLanguage: "python",
   testFramework: "unittest",
   testStyle: "given_when_then",
   includeAssertions: true,
@@ -140,8 +237,8 @@ const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
   testCount: 3,
 };
 
-class UnittestViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "unittestGeneratorView";
+class UnitTestViewProvider implements vscode.WebviewViewProvider {
+  public static readonly viewType = "unitTestGeneratorView";
   private _view?: vscode.WebviewView;
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
@@ -164,22 +261,29 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     // Set HTML content
     webviewView.webview.html = this._getWebviewContent(webviewView.webview);
 
-    let lastActiveFile = { code: "", fileName: "" };
+    let lastActiveFile = { code: "", fileName: "", language: "" };
 
     const updateActiveFile = () => {
       const editor = vscode.window.activeTextEditor;
-      if (editor && editor.document.languageId === "python") {
-        lastActiveFile.code = editor.document.getText();
-        lastActiveFile.fileName = path.basename(editor.document.fileName);
+      if (editor) {
+        const doc = editor.document;
+        lastActiveFile.code = doc.getText();
+        lastActiveFile.fileName = path.basename(doc.fileName);
+        lastActiveFile.language = doc.languageId;
+
         this._postMessage(webviewView, {
           command: "loadCode",
           code: lastActiveFile.code,
           fileName: lastActiveFile.fileName,
+          language: lastActiveFile.language,
         });
+
+        // Send available frameworks for this language
+        this._sendLanguageFrameworks(webviewView, lastActiveFile.language);
       }
     };
 
-    const sendPythonFiles = async () => {
+    const sendSourceFiles = async () => {
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders || workspaceFolders.length === 0) {
         this._postMessage(webviewView, { command: "fileList", files: [] });
@@ -187,18 +291,44 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       }
 
       try {
-        const pyFiles = await vscode.workspace.findFiles(
-          "**/*.py",
-          "**/node_modules/**"
-        );
-        const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
-        const files = pyFiles.map((uri) =>
-          uri.fsPath.replace(/\\/g, "/").replace(root + "/", "")
+        // Get all source files based on supported languages
+        const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
+          .map((lang) => `**/*.${getFileExtension(lang)}`)
+          .concat(
+            "**/*.js",
+            "**/*.ts",
+            "**/*.jsx",
+            "**/*.tsx",
+            "**/*.java",
+            "**/*.cs",
+            "**/*.go",
+            "**/*.rs",
+            "**/*.php",
+            "**/*.rb",
+            "**/*.kt",
+            "**/*.swift",
+            "**/*.cpp",
+            "**/*.h",
+            "**/*.hpp"
+          );
+
+        const files = await vscode.workspace.findFiles(
+          `{${sourceExtensions.join(",")}}`,
+          "**/node_modules/**,**/vendor/**,**/.git/**"
         );
 
-        this._postMessage(webviewView, { command: "fileList", files });
+        const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
+        const fileList = files.map((uri) => ({
+          path: uri.fsPath.replace(/\\/g, "/").replace(root + "/", ""),
+          language: getLanguageFromExtension(path.extname(uri.fsPath)),
+        }));
+
+        this._postMessage(webviewView, {
+          command: "fileList",
+          files: fileList,
+        });
       } catch (error) {
-        console.error("Error finding Python files:", error);
+        console.error("Error finding source files:", error);
         this._postMessage(webviewView, { command: "fileList", files: [] });
       }
     };
@@ -207,11 +337,11 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     this._setupMessageHandlers(webviewView);
 
     // Setup file watchers and event listeners
-    this._setupEventListeners(webviewView, updateActiveFile, sendPythonFiles);
+    this._setupEventListeners(webviewView, updateActiveFile, sendSourceFiles);
 
     // Initial data load
     updateActiveFile();
-    sendPythonFiles();
+    sendSourceFiles();
 
     console.log("Webview view resolved successfully");
   }
@@ -223,9 +353,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
       try {
         switch (message.command) {
           case "ready":
-            // When the webview indicates it's ready, proactively send the
-            // current Python file list so the UI can populate immediately.
-            await this._sendPythonFiles(webviewView);
+            await this._sendSourceFiles(webviewView);
             this._postMessage(webviewView, {
               command: "status",
               message: "Extension ready",
@@ -233,7 +361,11 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
             break;
 
           case "requestFileList":
-            await this._sendPythonFiles(webviewView);
+            await this._sendSourceFiles(webviewView);
+            break;
+
+          case "getLanguageFrameworks":
+            this._sendLanguageFrameworks(webviewView, message.language);
             break;
 
           case "generate":
@@ -245,7 +377,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
             break;
 
           case "generateCoverage":
-            await this._handleGenerateCoverage(webviewView);
+            await this._handleGenerateCoverage(webviewView, message);
             break;
 
           case "analyzeQuality":
@@ -267,27 +399,32 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
   private _setupEventListeners(
     webviewView: vscode.WebviewView,
     updateActiveFile: () => void,
-    sendPythonFiles: () => void
+    sendSourceFiles: () => void
   ) {
-    // File system watcher for Python files
-    const pythonWatcher = vscode.workspace.createFileSystemWatcher("**/*.py");
-    pythonWatcher.onDidCreate(() => sendPythonFiles());
-    pythonWatcher.onDidDelete(() => sendPythonFiles());
-    pythonWatcher.onDidChange(() => sendPythonFiles());
+    // File system watcher for source files
+    const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
+      .map((lang) => `**/*.${getFileExtension(lang)}`)
+      .join(",");
+
+    const sourceWatcher = vscode.workspace.createFileSystemWatcher(
+      `{${sourceExtensions},**/*.js,**/*.ts,**/*.java,**/*.cs,**/*.go,**/*.rs,**/*.php,**/*.rb,**/*.kt,**/*.swift,**/*.cpp,**/*.h}`
+    );
+
+    sourceWatcher.onDidCreate(() => sendSourceFiles());
+    sourceWatcher.onDidDelete(() => sendSourceFiles());
+    sourceWatcher.onDidChange(() => sendSourceFiles());
 
     // Editor events
     const disposables = [
-      pythonWatcher,
+      sourceWatcher,
       vscode.window.onDidChangeActiveTextEditor(() => updateActiveFile()),
       vscode.workspace.onDidSaveTextDocument((doc) => {
-        if (doc.languageId === "python") {
-          updateActiveFile();
-        }
+        updateActiveFile();
       }),
       webviewView.onDidChangeVisibility(() => {
         if (webviewView.visible) {
           updateActiveFile();
-          sendPythonFiles();
+          sendSourceFiles();
         }
       }),
     ];
@@ -298,7 +435,7 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private async _sendPythonFiles(webviewView: vscode.WebviewView) {
+  private async _sendSourceFiles(webviewView: vscode.WebviewView) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
       this._postMessage(webviewView, { command: "fileList", files: [] });
@@ -306,20 +443,58 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
 
     try {
-      const pyFiles = await vscode.workspace.findFiles(
-        "**/*.py",
-        "**/node_modules/**"
-      );
-      const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
-      const files = pyFiles.map((uri) =>
-        uri.fsPath.replace(/\\/g, "/").replace(root + "/", "")
+      const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
+        .map((lang) => `**/*.${getFileExtension(lang)}`)
+        .concat(
+          "**/*.js",
+          "**/*.ts",
+          "**/*.jsx",
+          "**/*.tsx",
+          "**/*.java",
+          "**/*.cs",
+          "**/*.go",
+          "**/*.rs",
+          "**/*.php",
+          "**/*.rb",
+          "**/*.kt",
+          "**/*.swift",
+          "**/*.cpp",
+          "**/*.h",
+          "**/*.hpp"
+        );
+
+      const files = await vscode.workspace.findFiles(
+        `{${sourceExtensions.join(",")}}`,
+        "**/node_modules/**,**/vendor/**,**/.git/**"
       );
 
-      this._postMessage(webviewView, { command: "fileList", files });
+      const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
+      const fileList = files.map((uri) => ({
+        path: uri.fsPath.replace(/\\/g, "/").replace(root + "/", ""),
+        language: getLanguageFromExtension(path.extname(uri.fsPath)),
+      }));
+
+      this._postMessage(webviewView, { command: "fileList", files: fileList });
     } catch (error) {
-      console.error("Error finding Python files:", error);
+      console.error("Error finding source files:", error);
       this._postMessage(webviewView, { command: "fileList", files: [] });
     }
+  }
+
+  private _sendLanguageFrameworks(
+    webviewView: vscode.WebviewView,
+    language: string
+  ) {
+    const frameworks = LANGUAGE_FRAMEWORKS[language] || {
+      testFrameworks: ["custom"],
+      mockingFrameworks: ["custom"],
+    };
+
+    this._postMessage(webviewView, {
+      command: "languageFrameworks",
+      language,
+      frameworks,
+    });
   }
 
   private async _handleGenerateTest(
@@ -350,14 +525,23 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         );
         return;
       }
-      vscode.window.showInformationMessage("Generating unit tests...");
+
+      const language =
+        message.language ||
+        getLanguageFromExtension(path.extname(selectedFilePath));
+      vscode.window.showInformationMessage(
+        `Generating ${language} unit tests...`
+      );
 
       // Build configuration from user input
       const config: TestGenerationConfig = {
         ...DEFAULT_TEST_CONFIG,
-        testFramework: message.framework || "unittest",
+        programmingLanguage: language,
+        testFramework:
+          message.framework ||
+          DEFAULT_CONFIG_BY_LANGUAGE[language]?.testFramework ||
+          "custom",
         coverageTarget: parseInt(message.coverage || "80", 10),
-        // number of test cases requested by the UI (fall back to default)
         testCount: parseInt(
           String(message.testCases || DEFAULT_TEST_CONFIG.testCount),
           10
@@ -366,6 +550,10 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         testStyle: message.testStyle || DEFAULT_TEST_CONFIG.testStyle,
         includeErrorCases: message.includeErrorCases !== false,
         autoMockExternalDeps: !!message.mocking,
+        mockingFramework:
+          message.mockingFramework ||
+          DEFAULT_CONFIG_BY_LANGUAGE[language]?.mockingFramework ||
+          "custom",
       };
 
       const result = await generateUnitTest(
@@ -375,7 +563,6 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         config
       );
 
-      // Use quality metrics returned by generateUnitTest (already analyzed)
       const qualityMetrics = result.qualityMetrics;
 
       this._postMessage(webviewView, {
@@ -383,8 +570,10 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
         result: result.testCode,
         metadata: {
           provider: message.provider,
+          language: language,
           framework: message.framework,
           mocking: message.mocking,
+          mockingFramework: message.mockingFramework,
           testCases: message.testCases,
           coverage: message.coverage,
           generation_time: new Date().toISOString(),
@@ -405,22 +594,31 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
   private async _handleSaveFile(webviewView: vscode.WebviewView, message: any) {
     try {
       const result = message.result;
-      const basename = path.basename(message.fileName, ".py");
-      const newFileName = `test_${basename}.py`;
+      const sourceFileName = message.fileName;
+      const language = message.language;
+      const extension = path.extname(sourceFileName);
+      const basename = path.basename(sourceFileName, extension);
+
+      // Determine test file naming convention based on language
+      const testFileName = getTestFileName(basename, extension, language);
 
       const activeDoc = vscode.window.activeTextEditor?.document;
       const dir = activeDoc
         ? path.dirname(activeDoc.fileName)
         : vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || "";
 
-      const newFilePath = path.join(dir, newFileName);
+      const newFilePath = path.join(dir, testFileName);
       fs.writeFileSync(newFilePath, result, "utf8");
 
       // Log test generation
-      await this._logTestGeneration(message, basename, newFileName);
+      await this._logTestGeneration(
+        message,
+        basename + extension,
+        testFileName
+      );
 
       vscode.window.showInformationMessage(
-        `✅ Test file saved as ${newFileName}`
+        `✅ Test file saved as ${testFileName}`
       );
 
       // Open the new file
@@ -438,7 +636,8 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     try {
       const qualityMetrics = analyzeTestQuality(
         message.testCode,
-        message.sourceCode
+        message.sourceCode,
+        message.language
       );
       this._postMessage(webviewView, {
         command: "qualityAnalysis",
@@ -461,12 +660,14 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
 
       const entry = {
         runId,
-        file_tested: basename + ".py",
+        file_tested: basename,
         test_file: newFileName,
         generator: "AI Unit Test Generator",
+        language: message.metadata?.language || "",
         provider: message.metadata?.provider || "",
         framework: message.metadata?.framework || "",
         mocking: !!message.metadata?.mocking,
+        mockingFramework: message.metadata?.mockingFramework || "",
         test_count: parseInt(message.metadata?.testCases || "0", 10),
         coverage_target: parseInt(message.metadata?.coverage || "0", 10),
         generation_time:
@@ -485,9 +686,15 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private async _handleGenerateCoverage(webviewView: vscode.WebviewView) {
+  private async _handleGenerateCoverage(
+    webviewView: vscode.WebviewView,
+    message: any
+  ) {
     try {
-      await runCoverageAndParse({ webview: webviewView.webview } as any);
+      await runCoverageAndParse(
+        { webview: webviewView.webview } as any,
+        message.language
+      );
     } catch (error: any) {
       this._postMessage(webviewView, {
         command: "coverageResult",
@@ -535,6 +742,11 @@ class UnittestViewProvider implements vscode.WebviewViewProvider {
     try {
       let htmlContent = fs.readFileSync(htmlPath, "utf8");
       htmlContent = htmlContent.replace(/{ICON_URI}/g, iconUri.toString());
+      // Inject language frameworks data
+      htmlContent = htmlContent.replace(
+        /{LANGUAGE_FRAMEWORKS}/g,
+        JSON.stringify(LANGUAGE_FRAMEWORKS)
+      );
       return htmlContent;
     } catch (error) {
       console.log("Error reading panel.html:", error);
@@ -601,20 +813,20 @@ async function generateUnitTest(
       url: "https://api.groq.com/openai/v1/chat/completions",
       model: "meta-llama/llama-4-maverick-17b-128e-instruct",
     },
-    qwen: {
+    groq: {
       apiKey: process.env.GROQ_API_KEY,
       url: "https://api.groq.com/openai/v1/chat/completions",
-      model: "qwen/qwen3-32b",
+      model: "groq/compound",
     },
-    dash: {
+    phi3: {
       apiKey: process.env.OPENROUTER_API_KEY,
       url: "https://openrouter.ai/api/v1/chat/completions",
-      model: "openrouter/sherlock-dash-alpha",
+      model: "microsoft/phi-3-mini-128k-instruct",
     },
-    wizardlm: {
+    codexmini: {
       apiKey: process.env.OPENROUTER_API_KEY,
       url: "https://openrouter.ai/api/v1/chat/completions",
-      model: "microsoft/wizardlm-2-8x22b",
+      model: "openai/codex-mini",
     },
     deepseek: {
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -660,8 +872,7 @@ async function generateUnitTest(
       messages: [
         {
           role: "system",
-          content:
-            "You are an expert Python test engineer that writes high-quality, maintainable unit tests.",
+          content: `You are an expert ${config.programmingLanguage} test engineer that writes high-quality, maintainable unit tests for ${config.testFramework}.`,
         },
         { role: "user", content: prompt },
       ],
@@ -679,7 +890,11 @@ async function generateUnitTest(
   const testCode = json?.choices?.[0]?.message?.content || "No response";
 
   // Analyze quality of generated tests
-  const qualityMetrics = analyzeTestQuality(testCode, code);
+  const qualityMetrics = analyzeTestQuality(
+    testCode,
+    code,
+    config.programmingLanguage
+  );
 
   return { testCode, qualityMetrics };
 }
@@ -695,11 +910,19 @@ export function buildTestPrompt(
       ? config.testCount
       : DEFAULT_TEST_CONFIG.testCount;
 
+  const languageSpecificGuidelines = getLanguageSpecificGuidelines(
+    config.programmingLanguage,
+    config.testFramework
+  );
+
   return `
-You are an expert Python test engineer. Generate high-quality unit tests following these STRICT requirements:
+You are an expert ${
+    config.programmingLanguage
+  } test engineer. Generate high-quality unit tests following these STRICT requirements:
 
 ## GENERATION CONFIGURATION:
-- Framework: ${config.testFramework}
+- Programming Language: ${config.programmingLanguage}
+- Test Framework: ${config.testFramework}
 - Test Style: ${config.testStyle}
 - Coverage Target: ${config.coverageTarget}%
 - Mocking Framework: ${config.mockingFramework}
@@ -708,15 +931,18 @@ You are an expert Python test engineer. Generate high-quality unit tests followi
 - Include Error Cases: ${config.includeErrorCases}
 - Max Test Complexity: ${config.maxFunctionComplexity}
 
+## LANGUAGE-SPECIFIC GUIDELINES:
+${languageSpecificGuidelines}
+
 ## CODE QUALITY RULES:
 ${
   config.requireDocstrings
-    ? "- Every test MUST have descriptive docstrings"
+    ? "- Every test MUST have descriptive docstrings/comments"
     : ""
 }
 ${
   config.enforceNamingConventions
-    ? "- Use snake_case for test names, prefix with test_"
+    ? `- Use appropriate naming conventions for ${config.programmingLanguage}`
     : ""
 }
 ${
@@ -765,7 +991,7 @@ ${
 6. Use meaningful assertions with descriptive messages
 
 ## SOURCE CODE TO TEST:
-\`\`\`python
+\`\`\`${config.programmingLanguage}
 ${code}
 \`\`\`
 
@@ -773,54 +999,157 @@ Generate comprehensive unit tests that achieve ${
     config.coverageTarget
   }% coverage. Focus on testing behavior, not implementation.
 
-Return ONLY the Python test code without any explanations or markdown formatting.
+Return ONLY the ${
+    config.programmingLanguage
+  } test code without any explanations or markdown formatting.
 `;
+}
+
+// Get language-specific testing guidelines
+function getLanguageSpecificGuidelines(
+  language: string,
+  framework: string
+): string {
+  const guidelines: Record<string, string> = {
+    python: `- Use ${
+      framework === "pytest" ? "@pytest.fixture" : "setUp()/tearDown()"
+    } for setup
+- Import unittest.mock for mocking
+- Use assert statements appropriately`,
+    javascript: `- Use ${
+      framework === "jest" ? "describe/it" : "describe/it"
+    } blocks
+- Use expect() assertions
+- Mock using ${framework === "jest" ? "jest.mock()" : "sinon"}`,
+    typescript: `- Use ${
+      framework === "jest" ? "describe/it" : "describe/it"
+    } blocks
+- Include type definitions
+- Mock using ${framework === "jest" ? "jest.mock()" : "sinon"}`,
+    java: `- Use ${
+      framework === "junit" ? "@Test annotations" : "appropriate annotations"
+    }
+- Follow Java naming conventions
+- Use ${framework === "mockito" ? "@Mock annotations" : "appropriate mocking"}`,
+    csharp: `- Use ${framework} attributes
+- Follow C# naming conventions
+- Use appropriate assertion library`,
+    go: `- Use testing package
+- Follow Go naming conventions (TestXxx)
+- Use table-driven tests when appropriate`,
+  };
+
+  return (
+    guidelines[language] || `- Follow best practices for ${language} testing`
+  );
 }
 
 // Analyze test quality metrics
 function analyzeTestQuality(
   testCode: string,
-  sourceCode: string
-): TestQualityMetrics {
-  const testCount = (testCode.match(/def test_/g) || []).length;
-  const assertionCount = (
-    testCode.match(/assert|self\.assert|unittest\.assert/g) || []
-  ).length;
-  const hasEdgeCases = /edge|boundary|min|max|zero|empty|null/.test(
-    testCode.toLowerCase()
-  );
-  const hasErrorCases = /error|exception|try|except|raise/.test(
-    testCode.toLowerCase()
-  );
-  const hasMocking = /mock|patch|MagicMock|Mock/.test(testCode);
-  const complexity = calculateComplexity(testCode);
+  sourceCode: string,
+  language: string = "python"
+) {
+  // Language-specific assertion patterns
+  const assertionPatterns: Record<string, RegExp[]> = {
+    python: [/\bassert\s|\bself\.assert|\bunittest\.assert|\bpytest\.assert/g],
+    javascript: [/\bexpect\(|\bassert\(|\bshould\.equal|\btoBe\(|\btoEqual\(/g],
+    typescript: [/\bexpect\(|\bassert\(|\bshould\.equal|\btoBe\(|\btoEqual\(/g],
+    java: [/\bassertThat\(|\bassertEquals\(|\bassertTrue\(|\bassertFalse\(/g],
+    csharp: [
+      /\bAssert\.Equal\(|\bAssert\.True\(|\bAssert\.False\(|\bAssert\.NotNull\(/g,
+    ],
+    go: [/\bt\.Error\(|\bt\.Errorf\(|\bt\.Fatal\(|\bt\.Fatalf\(/g],
+  };
 
-  // Calculate quality score
+  // Language-specific test function patterns
+  const testFunctionPatterns: Record<string, RegExp[]> = {
+    python: [/\bdef\s+test_/g],
+    javascript: [/\bit\(|\bdescribe\(/g],
+    typescript: [/\bit\(|\bdescribe\(/g],
+    java: [/\b@Test\b|\bpublic void test/g],
+    csharp: [/\b\[Test\]|\bpublic void Test/g],
+    go: [/\bfunc Test\w+\(/g],
+  };
+
+  const lower = testCode.toLowerCase();
+
+  // Count test functions
+  const patterns = testFunctionPatterns[language] || [
+    /def test_|it\(|describe\(|@Test|func Test/g,
+  ];
+  let testCount = 0;
+  patterns.forEach((pattern) => {
+    testCount += (testCode.match(pattern) || []).length;
+  });
+
+  // Count assertions
+  const assertionPattern = assertionPatterns[language] || [
+    /assert|expect|should|toBe|toEqual|assertEquals/g,
+  ];
+  let assertionCount = 0;
+  assertionPattern.forEach((pattern) => {
+    assertionCount += (testCode.match(pattern) || []).length;
+  });
+
+  const hasEdgeCases =
+    /\bedge|\bboundary|\bmin\b|\bmax\b|\bzero|\bempty|\bnull\b|\bnone\b/.test(
+      lower
+    );
+
+  const hasErrorCases =
+    /\berror|\bexception|\btry\b|\bexcept\b|\braise\b|\bcatch\b|\bthrow\b/.test(
+      lower
+    );
+
+  const hasMocking =
+    /\bmock|patch|MagicMock|Mock\b|jest\.mock|sinon|@Mock|Mockito/.test(
+      testCode
+    );
+
+  // ---------- COMPLEXITY ESTIMATION ----------
+  const controlStructures = (
+    testCode.match(
+      /\bif\b|\belse\b|\bfor\b|\bwhile\b|\btry\b|\bcatch\b|\bswitch\b/g
+    ) || []
+  ).length;
+
+  const cognitivePenalty = Math.floor(testCode.split("\n").length / 40);
+  const complexity = Math.max(1, controlStructures + cognitivePenalty);
+
+  // ---------- QUALITY LEVEL CLASSIFICATION ----------
   let qualityScore = "Poor";
-  if (testCount >= 3 && assertionCount >= testCount) {
+
+  if (testCount >= 2 && assertionCount >= testCount) {
+    qualityScore = "Fair";
+  }
+  if (
+    testCount >= 3 &&
+    assertionCount >= testCount * 1.2 &&
+    (hasEdgeCases || hasErrorCases)
+  ) {
     qualityScore = "Good";
   }
   if (
     testCount >= 5 &&
     assertionCount >= testCount * 1.5 &&
     hasEdgeCases &&
-    hasErrorCases
+    hasErrorCases &&
+    hasMocking
   ) {
     qualityScore = "Excellent";
   }
 
-  // Estimate coverage based on test metrics
+  // ---------- ESTIMATED COVERAGE ----------
   const estimatedCoverage = Math.min(
     100,
-    Math.max(
-      50,
-      testCount * 15 +
-        assertionCount * 5 +
-        (hasEdgeCases ? 10 : 0) +
-        (hasErrorCases ? 10 : 0)
-    )
+    testCount * 15 +
+      assertionCount * 3 +
+      (hasEdgeCases ? 10 : 0) +
+      (hasErrorCases ? 10 : 0)
   );
 
+  // ---------- OUTPUT ----------
   return {
     qualityScore,
     estimatedCoverage,
@@ -833,10 +1162,84 @@ function analyzeTestQuality(
   };
 }
 
+// Get language from file extension
+function getLanguageFromExtension(extension: string): string {
+  const extensionMap: Record<string, string> = {
+    ".py": "python",
+    ".js": "javascript",
+    ".jsx": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".java": "java",
+    ".cs": "csharp",
+    ".go": "go",
+    ".rs": "rust",
+    ".php": "php",
+    ".rb": "ruby",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".swift": "swift",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".h": "cpp",
+    ".hpp": "cpp",
+    ".hxx": "cpp",
+  };
+
+  return extensionMap[extension.toLowerCase()] || "python";
+}
+
+// Get file extension for language
+function getFileExtension(language: string): string {
+  const languageMap: Record<string, string> = {
+    python: "py",
+    javascript: "js",
+    typescript: "ts",
+    java: "java",
+    csharp: "cs",
+    go: "go",
+    rust: "rs",
+    php: "php",
+    ruby: "rb",
+    kotlin: "kt",
+    swift: "swift",
+    cpp: "cpp",
+  };
+
+  return languageMap[language] || "py";
+}
+
+// Get test file name based on language conventions
+function getTestFileName(
+  basename: string,
+  extension: string,
+  language: string
+): string {
+  const conventions: Record<string, string> = {
+    python: `test_${basename}.py`,
+    javascript: `${basename}.test${extension}`,
+    typescript: `${basename}.test${extension}`,
+    java: `${basename}Test.java`,
+    csharp: `${basename}Tests.cs`,
+    go: `${basename}_test.go`,
+    rust: `${basename}_test.rs`,
+    php: `${basename}Test.php`,
+    ruby: `${basename}_test.rb`,
+    kotlin: `${basename}Test.kt`,
+    swift: `${basename}Tests.swift`,
+    cpp: `${basename}_test.cpp`,
+  };
+
+  return conventions[language] || `test_${basename}${extension}`;
+}
+
 // Calculate code complexity (simplified)
 function calculateComplexity(code: string): number {
   const lines = code.split("\n").length;
-  const branches = (code.match(/if|for|while|catch/g) || []).length;
+  const branches = (
+    code.match(/if|elif|else|for|while|try|catch|switch|case/g) || []
+  ).length;
   return Math.max(1, Math.round(lines * 0.1 + branches));
 }
 
@@ -866,7 +1269,10 @@ const runCommand = (
   });
 };
 
-async function runCoverageAndParse(panelLike: { webview: vscode.Webview }) {
+async function runCoverageAndParse(
+  panelLike: { webview: vscode.Webview },
+  language: string = "python"
+) {
   const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspace) {
     panelLike.webview.postMessage({
@@ -878,30 +1284,75 @@ async function runCoverageAndParse(panelLike: { webview: vscode.Webview }) {
   }
 
   try {
-    await runCommand(
-      "coverage",
-      ["run", "-m", "unittest", "discover"],
-      workspace
-    );
-    await runCommand("coverage", ["json", "-o", "coverage.json"], workspace);
+    // Language-specific coverage commands
+    const coverageCommands: Record<
+      string,
+      { run: string[]; report: string[] }
+    > = {
+      python: {
+        run: ["coverage", "run", "-m", "unittest", "discover"],
+        report: ["coverage", "json", "-o", "coverage.json"],
+      },
+      javascript: {
+        run: ["npx", "jest", "--coverage"],
+        report: ["node", "-e", "console.log('Coverage generated by jest')"],
+      },
+      typescript: {
+        run: ["npx", "jest", "--coverage"],
+        report: ["node", "-e", "console.log('Coverage generated by jest')"],
+      },
+      java: {
+        run: ["./mvnw", "test", "jacoco:report"],
+        report: ["node", "-e", "console.log('Coverage generated by jacoco')"],
+      },
+      csharp: {
+        run: ["dotnet", "test", '--collect:"XPlat Code Coverage"'],
+        report: [
+          "dotnet",
+          "reportgenerator",
+          "-reports:*/coverage.cobertura.xml",
+          "-targetdir:coveragereport",
+        ],
+      },
+    };
 
+    const commands = coverageCommands[language] || coverageCommands.python;
+
+    await runCommand(commands.run[0], commands.run.slice(1), workspace);
+
+    if (commands.report) {
+      await runCommand(commands.report[0], commands.report.slice(1), workspace);
+    }
+
+    // Try to read coverage report
     const covPath = path.join(workspace, "coverage.json");
-    const json = JSON.parse(fs.readFileSync(covPath, "utf8"));
+    if (fs.existsSync(covPath)) {
+      const json = JSON.parse(fs.readFileSync(covPath, "utf8"));
 
-    const files = Object.entries(json.files || {}).map(([file, data]: any) => ({
-      file,
-      percent_covered: data.summary?.percent_covered || 0,
-      covered_lines:
-        (data.summary?.num_statements || 0) -
-        (data.summary?.missing_lines || 0),
-      missing_lines: data.summary?.missing_lines || [],
-    }));
+      const files = Object.entries(json.files || {}).map(
+        ([file, data]: any) => ({
+          file,
+          percent_covered: data.summary?.percent_covered || 0,
+          covered_lines:
+            (data.summary?.num_statements || 0) -
+            (data.summary?.missing_lines || 0),
+          missing_lines: data.summary?.missing_lines || [],
+        })
+      );
 
-    panelLike.webview.postMessage({
-      command: "coverageResult",
-      success: true,
-      data: { total: json.totals, files },
-    });
+      panelLike.webview.postMessage({
+        command: "coverageResult",
+        success: true,
+        data: { total: json.totals, files },
+      });
+    } else {
+      panelLike.webview.postMessage({
+        command: "coverageResult",
+        success: true,
+        data: { total: { percent_covered: 0 }, files: [] },
+        message: `Coverage executed but report format not supported for ${language}`,
+      });
+    }
   } catch (err: any) {
     panelLike.webview.postMessage({
       command: "coverageResult",
@@ -961,6 +1412,9 @@ function writeTestLogEntry(projectRoot: string, entry: any) {
         (s: number, r: any) => s + (r.tests_failed || 0),
         0
       ),
+      languages_used: [
+        ...new Set(data.results.map((r: any) => r.language || "python")),
+      ],
     };
 
     fs.writeFileSync(logPath, JSON.stringify(data, null, 2), "utf8");
@@ -986,21 +1440,22 @@ function generateMarkdownReport(projectRoot: string) {
 
 **Generator:** ${meta.generator || "AI Unit Test Generator"}  
 **Created:** ${meta.created || ""}
+**Languages Used:** ${data.summary?.languages_used?.join(", ") || "Python"}
 
 ---
 
 ## 📂 Test Runs Summary
 
-| File Tested | Test File | Total | Passed | Failed | Status | RunId |
-|-------------|-----------|-------|--------|--------|--------|-------|
+| Language | File Tested | Test File | Total | Passed | Failed | Status | RunId |
+|----------|-------------|-----------|-------|--------|--------|--------|-------|
 `;
 
   (data.results || []).forEach((r: any) => {
-    md += `| ${r.file_tested || ""} | ${r.test_file || ""} | ${
-      r.tests_total || 0
-    } | ${r.tests_passed || 0} | ${r.tests_failed || 0} | ${r.status || ""} | ${
-      r.runId || ""
-    } |
+    md += `| ${r.language || "python"} | ${r.file_tested || ""} | ${
+      r.test_file || ""
+    } | ${r.tests_total || 0} | ${r.tests_passed || 0} | ${
+      r.tests_failed || 0
+    } | ${r.status || ""} | ${r.runId || ""} |
 `;
   });
 
@@ -1008,8 +1463,9 @@ function generateMarkdownReport(projectRoot: string) {
 
 ---
 
-Generated automatically by the extension.
+Generated automatically by the multi-language unit test extension.
 `;
+
   try {
     fs.writeFileSync(mdPath, md, "utf8");
   } catch (err: any) {
