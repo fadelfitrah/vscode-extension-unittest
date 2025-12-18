@@ -65,7 +65,13 @@ export function deactivate() {}
 // Configuration Interfaces
 interface TestGenerationConfig {
   // AI Provider Configuration
-  aiProvider: "openai" | "mettalamma" | "qwen" | "dash" | "kimi" | "deepseek";
+  aiProvider:
+    | "openai"
+    | "mettalamma"
+    | "groq"
+    | "phi3"
+    | "codexmini"
+    | "deepseek";
   model: string;
   temperature: number;
   maxTokens: number;
@@ -101,7 +107,7 @@ interface TestGenerationConfig {
 }
 
 interface TestQualityMetrics {
-  qualityScore: string;
+  qualityScore: "Poor" | "Fair" | "Good" | "Excellent";
   estimatedCoverage: number;
   testCount: number;
   assertionCount: number;
@@ -109,10 +115,6 @@ interface TestQualityMetrics {
   hasErrorCases: boolean;
   hasMocking: boolean;
   complexity: number;
-  smells?: { [key: string]: boolean };
-  smellCount?: number;
-  estimatedBranchesCoverage?: number;
-  estimatedMutationScore?: number;
 }
 
 // Language and Framework Mappings - HANYA 3 BAHASA
@@ -905,7 +907,7 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
         mockingFramework:
           message.mockingFramework ||
           DEFAULT_CONFIG_BY_LANGUAGE[language]?.mockingFramework ||
-          "custom",
+          "",
       };
 
       const result = await generateUnitTest(
@@ -990,11 +992,8 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
     message: any
   ) {
     try {
-      const qualityMetrics = analyzeTestQuality(
-        message.testCode,
-        message.sourceCode,
-        message.language
-      );
+      const testCode = message.testCode;
+      const qualityMetrics = analyzeTestQuality(testCode, message.sourceCode);
       this._postMessage(webviewView, {
         command: "qualityAnalysis",
         metrics: qualityMetrics,
@@ -1249,7 +1248,6 @@ async function generateUnitTest(
   // Analyze quality of generated tests
   const qualityMetrics = analyzeTestQuality(
     testCode,
-    code,
     config.programmingLanguage
   );
 
@@ -1393,112 +1391,103 @@ function getLanguageSpecificGuidelines(
   );
 }
 
-// Analyze test quality metrics - HANYA 3 BAHASA
-function analyzeTestQuality(
-  testCode: string,
-  sourceCode: string,
-  language: string = "python"
-) {
-  // Language-specific assertion patterns
-  const assertionPatterns: Record<string, RegExp[]> = {
-    python: [/\bassert\s|\bself\.assert|\bunittest\.assert|\bpytest\.assert/g],
-    javascript: [/\bexpect\(|\bassert\(|\bshould\.equal|\btoBe\(|\btoEqual\(/g],
-    java: [/\bassertThat\(|\bassertEquals\(|\bassertTrue\(|\bassertFalse\(/g],
-  };
-
-  // Language-specific test function patterns
-  const testFunctionPatterns: Record<string, RegExp[]> = {
-    python: [/\bdef\s+test_/g],
-    javascript: [/\bit\(|\bdescribe\(/g],
-    java: [/\b@Test\b|\bpublic void test/g],
-  };
-
-  const lower = testCode.toLowerCase();
-
-  // Count test functions
-  const patterns = testFunctionPatterns[language] || [
-    /def test_|it\(|describe\(|@Test/g,
-  ];
-  let testCount = 0;
-  patterns.forEach((pattern) => {
-    testCount += (testCode.match(pattern) || []).length;
-  });
-
-  // Count assertions
-  const assertionPattern = assertionPatterns[language] || [
-    /assert|expect|should|toBe|toEqual|assertEquals/g,
-  ];
-  let assertionCount = 0;
-  assertionPattern.forEach((pattern) => {
-    assertionCount += (testCode.match(pattern) || []).length;
-  });
-
-  const hasEdgeCases =
-    /\bedge|\bboundary|\bmin\b|\bmax\b|\bzero|\bempty|\bnull\b|\bnone\b/.test(
-      lower
-    );
-
-  const hasErrorCases =
-    /\berror|\bexception|\btry\b|\bexcept\b|\braise\b|\bcatch\b|\bthrow\b/.test(
-      lower
-    );
-
-  const hasMocking =
-    /\bmock|patch|MagicMock|Mock\b|jest\.mock|sinon|@Mock|Mockito/.test(
-      testCode
-    );
-
-  // ---------- COMPLEXITY ESTIMATION ----------
-  const controlStructures = (
-    testCode.match(
-      /\bif\b|\belse\b|\bfor\b|\bwhile\b|\btry\b|\bcatch\b|\bswitch\b/g
-    ) || []
-  ).length;
-
-  const cognitivePenalty = Math.floor(testCode.split("\n").length / 40);
-  const complexity = Math.max(1, controlStructures + cognitivePenalty);
-
-  // ---------- QUALITY LEVEL CLASSIFICATION ----------
-  let qualityScore = "Poor";
-
-  if (testCount >= 2 && assertionCount >= testCount) {
-    qualityScore = "Fair";
-  }
-  if (
-    testCount >= 3 &&
-    assertionCount >= testCount * 1.2 &&
-    (hasEdgeCases || hasErrorCases)
-  ) {
-    qualityScore = "Good";
-  }
+function classifyQuality(
+  testCount: number,
+  assertionCount: number,
+  edge: boolean,
+  error: boolean,
+  mock: boolean
+): "Poor" | "Fair" | "Good" | "Excellent" {
   if (
     testCount >= 5 &&
     assertionCount >= testCount * 1.5 &&
-    hasEdgeCases &&
-    hasErrorCases &&
-    hasMocking
-  ) {
-    qualityScore = "Excellent";
-  }
+    edge &&
+    error &&
+    mock
+  )
+    return "Excellent";
 
-  // ---------- ESTIMATED COVERAGE ----------
-  const estimatedCoverage = Math.min(
+  if (testCount >= 3 && assertionCount >= testCount * 1.2 && (edge || error))
+    return "Good";
+
+  if (testCount >= 2) return "Fair";
+
+  return "Poor";
+}
+
+function estimateCoverage(
+  testCount: number,
+  assertionCount: number,
+  edge: boolean,
+  error: boolean
+): number {
+  return Math.min(
     100,
-    testCount * 15 +
-      assertionCount * 3 +
-      (hasEdgeCases ? 10 : 0) +
-      (hasErrorCases ? 10 : 0)
+    testCount * 15 + assertionCount * 3 + (edge ? 10 : 0) + (error ? 10 : 0)
   );
+}
 
-  // ---------- OUTPUT ----------
+function estimateComplexity(code: string): number {
+  const controls = (
+    code.match(/\bif\b|\bfor\b|\bwhile\b|\btry\b|\bcatch\b|\bswitch\b/g) || []
+  ).length;
+
+  const linesPenalty = Math.floor(code.split("\n").length / 40);
+
+  return Math.max(1, controls + linesPenalty);
+}
+
+type SupportedLanguage = "python" | "javascript" | "java";
+
+function hasMocking(code: string, language: SupportedLanguage): boolean {
+  const patterns: Record<SupportedLanguage, RegExp> = {
+    python: /\bmock\b|\bpatch\b|MagicMock/,
+    javascript: /\bjest\.mock\b|\bsinon\b/,
+    java: /\b@Mock\b|\bMockito\b/,
+  };
+
+  return patterns[language].test(code);
+}
+
+function hasEdgeCases(code: string): boolean {
+  return /\bedge\b|\bboundary\b|\bmin\b|\bmax\b|\bzero\b|\bempty\b/i.test(code);
+}
+
+function countAssertions(code: string, language: SupportedLanguage): number {
+  const patterns: Record<SupportedLanguage, RegExp> = {
+    python: /\bassert\s|\bself\.assert/g,
+    javascript: /\bexpect\s*\(/g,
+    java: /\bassert\w+\s*\(/g,
+  };
+
+  return (code.match(patterns[language]) || []).length;
+}
+
+function hasErrorCases(code: string): boolean {
+  return /\bexception\b|\berror\b|\bthrow\b|\btry\b|\bcatch\b/i.test(code);
+}
+
+// Analyze test quality metrics - HANYA 3 BAHASA
+function analyzeTestQuality(
+  testCode: string,
+  language: "python" | "javascript" | "java"
+) {
+  const testCount = countTests(testCode, language);
+  const assertionCount = countAssertions(testCode, language);
+  const edge = hasEdgeCases(testCode);
+  const error = hasErrorCases(testCode);
+  const mock = hasMocking(testCode, language);
+  const complexity = estimateComplexity(testCode);
+  const coverage = estimateCoverage(testCount, assertionCount, edge, error);
+
   return {
-    qualityScore,
-    estimatedCoverage,
+    qualityScore: classifyQuality(testCount, assertionCount, edge, error, mock),
+    estimatedCoverage: coverage,
     testCount,
     assertionCount,
-    hasEdgeCases,
-    hasErrorCases,
-    hasMocking,
+    hasEdgeCases: edge,
+    hasErrorCases: error,
+    hasMocking: mock,
     complexity,
   };
 }
@@ -1540,15 +1529,6 @@ function getTestFileName(
   return conventions[language] || `test_${basename}${extension}`;
 }
 
-// Calculate code complexity (simplified)
-function calculateComplexity(code: string): number {
-  const lines = code.split("\n").length;
-  const branches = (
-    code.match(/if|elif|else|for|while|try|catch|switch|case/g) || []
-  ).length;
-  return Math.max(1, Math.round(lines * 0.1 + branches));
-}
-
 // Existing utility functions
 const runCommand = (
   cmd: string,
@@ -1575,9 +1555,31 @@ const runCommand = (
   });
 };
 
+function normalizeLanguage(lang?: string): "python" | "javascript" | "java" {
+  if (!lang) return "python";
+
+  const value = lang.toLowerCase();
+
+  if (value.startsWith("py")) return "python";
+  if (value === "js" || value.includes("javascript")) return "javascript";
+  if (value.includes("java")) return "java";
+
+  return "python";
+}
+
+function countTests(code: string, language: SupportedLanguage): number {
+  const patterns: Record<SupportedLanguage, RegExp> = {
+    python: /\bdef\s+test_/g,
+    javascript: /\b(it|test)\s*\(/g,
+    java: /\b@Test\b/g,
+  };
+
+  return (code.match(patterns[language]) || []).length;
+}
+
 async function runCoverageAndParse(
   panelLike: { webview: vscode.Webview },
-  language: string = "python"
+  getLanguageFrameworks?: string
 ) {
   const workspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspace) {
@@ -1589,10 +1591,11 @@ async function runCoverageAndParse(
     return;
   }
 
+  const language = normalizeLanguage(getLanguageFrameworks);
+
   try {
-    // Language-specific coverage commands - HANYA 3 BAHASA
     const coverageCommands: Record<
-      string,
+      "python" | "javascript" | "java",
       { run: string[]; report: string[] }
     > = {
       python: {
@@ -1609,7 +1612,7 @@ async function runCoverageAndParse(
       },
     };
 
-    const commands = coverageCommands[language] || coverageCommands.python;
+    const commands = coverageCommands[language];
 
     await runCommand(commands.run[0], commands.run.slice(1), workspace);
 
@@ -1617,7 +1620,6 @@ async function runCoverageAndParse(
       await runCommand(commands.report[0], commands.report.slice(1), workspace);
     }
 
-    // Try to read coverage report
     const covPath = path.join(workspace, "coverage.json");
     if (fs.existsSync(covPath)) {
       const json = JSON.parse(fs.readFileSync(covPath, "utf8"));
@@ -1637,6 +1639,7 @@ async function runCoverageAndParse(
         command: "coverageResult",
         success: true,
         data: { total: json.totals, files },
+        language, // 🔥 kirim balik bahasa final
       });
     } else {
       panelLike.webview.postMessage({
@@ -1644,6 +1647,7 @@ async function runCoverageAndParse(
         success: true,
         data: { total: { percent_covered: 0 }, files: [] },
         message: `Coverage executed but report format not supported for ${language}`,
+        language,
       });
     }
   } catch (err: any) {
@@ -1651,6 +1655,7 @@ async function runCoverageAndParse(
       command: "coverageResult",
       success: false,
       message: err?.message || String(err),
+      language,
     });
   }
 }

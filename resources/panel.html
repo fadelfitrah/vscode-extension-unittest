@@ -1094,8 +1094,8 @@
         if (metadata && metadata.qualityMetrics) {
           updateQualityIndicators(metadata.qualityMetrics);
         } else {
-          const basicMetrics = analyzeTestQualityBasic(result, currentLanguage);
-          updateQualityIndicators(basicMetrics);
+          resetQualityIndicators();
+          showStatus("Quality metrics not provided by backend", "warning");
         }
 
         // Clear coverage result when new test is generated
@@ -1145,91 +1145,23 @@
         }
       }
 
-      function analyzeTestQualityBasic(testCode, language = "python") {
-        // Language-specific patterns
-        const patterns = {
-          python: {
-            testFunction: /\bdef\s+test_/g,
-            assertion: /\bassert\s|\bself\.assert|\bunittest\.assert/g,
-            mocking: /\bmock|patch|MagicMock|Mock\b/,
-          },
-          javascript: {
-            testFunction: /\b(it|test)\(/g,
-            assertion: /\bexpect\(|\bassert\(|\bshould\.equal/g,
-            mocking: /\bjest\.mock|\bsinon|\bMock\b/,
-          },
-          java: {
-            testFunction: /\b@Test\b|\bpublic void test/g,
-            assertion: /\bassertThat\(|\bassertEquals\(|\bassertTrue\(/g,
-            mocking: /\b@Mock|\bMockito/,
-          },
-        };
+      function resetQualityIndicators() {
+        document.getElementById("qualityScore").textContent = "--";
+        document.getElementById("qualityScore").className = "score-value";
 
-        const langPatterns = patterns[language] || patterns.python;
-        const lower = testCode.toLowerCase();
+        document.getElementById("estimatedCoverage").textContent = "--%";
+        document.getElementById("testStats").textContent = "--";
+        document.getElementById("complexityScore").textContent = "--";
+        document.getElementById("assertionCount").textContent = "--";
 
-        const testCount = (testCode.match(langPatterns.testFunction) || [])
-          .length;
-        const assertionCount = (testCode.match(langPatterns.assertion) || [])
-          .length;
-        const hasEdgeCases =
-          /\bedge|\bboundary|\bmin\b|\bmax\b|\bzero|\bempty|\bnull\b/.test(
-            lower
-          );
-        const hasErrorCases =
-          /\berror|\bexception|\btry\b|\bcatch\b|\bthrow\b/.test(lower);
-        const hasMocking = testCode.match(langPatterns.mocking) !== null;
+        document.getElementById("edgeCasesIndicator").className =
+          "feature-indicator missing";
+        document.getElementById("errorCasesIndicator").className =
+          "feature-indicator missing";
+        document.getElementById("mockingIndicator").className =
+          "feature-indicator missing";
 
-        // Complexity estimation
-        const controlStructures = (
-          testCode.match(
-            /\bif\b|\belse\b|\bfor\b|\bwhile\b|\btry\b|\bcatch\b|\bswitch\b/g
-          ) || []
-        ).length;
-        const cognitivePenalty = Math.floor(testCode.split("\n").length / 40);
-        const complexity = Math.max(1, controlStructures + cognitivePenalty);
-
-        // Quality classification
-        let qualityScore = "Poor";
-        if (testCount >= 2 && assertionCount >= testCount) {
-          qualityScore = "Fair";
-        }
-        if (
-          testCount >= 3 &&
-          assertionCount >= testCount * 1.2 &&
-          (hasEdgeCases || hasErrorCases)
-        ) {
-          qualityScore = "Good";
-        }
-        if (
-          testCount >= 5 &&
-          assertionCount >= testCount * 1.5 &&
-          hasEdgeCases &&
-          hasErrorCases &&
-          hasMocking
-        ) {
-          qualityScore = "Excellent";
-        }
-
-        // Estimated coverage
-        const estimatedCoverage = Math.min(
-          100,
-          testCount * 15 +
-            assertionCount * 3 +
-            (hasEdgeCases ? 10 : 0) +
-            (hasErrorCases ? 10 : 0)
-        );
-
-        return {
-          qualityScore,
-          estimatedCoverage,
-          testCount,
-          assertionCount,
-          hasEdgeCases,
-          hasErrorCases,
-          hasMocking,
-          complexity,
-        };
+        document.getElementById("qualityDetails").classList.remove("visible");
       }
 
       function showQualityAnalysis(metrics) {
