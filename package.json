@@ -13,7 +13,8 @@
   "activationEvents": [
     "onView:unittestGeneratorView",
     "onCommand:generator-vscode-unittest.openPanel",
-    "onCommand:generator-vscode-unittest"
+    "onCommand:generator-vscode-unittest",
+    "onCommand:generator-vscode-unittest.reloadFiles"
   ],
   "main": "./dist/extension.js",
   "files": [

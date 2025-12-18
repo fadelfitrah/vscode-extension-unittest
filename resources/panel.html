@@ -46,6 +46,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        font-size: 12px;
       }
 
       .container {
@@ -61,8 +62,9 @@
         align-items: center;
         justify-content: space-between;
         background: var(--header-bg);
-        padding: 12px 16px;
+        padding: 8px 12px;
         border-bottom: 1px solid var(--border-color);
+        min-height: 40px;
       }
 
       .header-left {
@@ -71,14 +73,14 @@
       }
 
       .header img {
-        width: 30px;
-        height: 30px;
+        width: 24px;
+        height: 24px;
         margin-right: 8px;
       }
 
       .header h2 {
         color: #018020;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 600;
       }
 
@@ -91,7 +93,7 @@
       .language-badge {
         padding: 2px 8px;
         border-radius: 12px;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 500;
         background: var(--accent);
         color: white;
@@ -141,14 +143,15 @@
         flex: 1;
         display: flex;
         flex-direction: column;
-        padding: 16px;
+        padding: 10px;
         border-bottom: 1px solid var(--border-color);
         overflow: hidden;
+        min-height: 150px;
       }
 
       .result-section h3 {
-        margin-bottom: 8px;
-        font-size: 0.9rem;
+        margin-bottom: 6px;
+        font-size: 0.85rem;
         color: var(--text-color);
         font-weight: 500;
       }
@@ -156,23 +159,181 @@
       .result {
         background: var(--bg-color);
         border: 1px solid var(--border-color);
-        border-radius: 4px;
-        padding: 12px;
+        border-radius: 3px;
+        padding: 8px;
         flex: 1;
         overflow-y: auto;
         font-family: "Cascadia Code", "Consolas", monospace;
-        font-size: 12px;
+        font-size: 11px;
         line-height: 1.3;
         white-space: pre-wrap;
         word-wrap: break-word;
       }
 
+      /* ==================== FIXED CONTROLS - COMPACT VERSION ==================== */
       .fixed-controls {
-        padding: 10px;
+        padding: 8px 10px;
         background: var(--card-bg);
         border-bottom: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
       }
 
+      /* File selection - top row */
+      .file-selection-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        margin-bottom: 2px;
+      }
+
+      .file-selection-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+      }
+
+      /* Compact form controls */
+      .form-group {
+        margin-bottom: 6px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 3px;
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 0.75rem;
+        opacity: 0.9;
+        white-space: nowrap;
+      }
+
+      select,
+      input[type="number"],
+      input[type="text"] {
+        width: 100%;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+        color: var(--text-color);
+        padding: 4px 6px;
+        border-radius: 3px;
+        font-size: 0.75rem;
+        height: 26px;
+        min-height: 26px;
+      }
+
+      .file-picker-container {
+        display: flex;
+        gap: 2px;
+      }
+
+      .file-picker-container input {
+        flex: 1;
+        border-radius: 3px 0 0 3px;
+      }
+
+      .file-picker-btn {
+        background: var(--accent);
+        border: 1px solid var(--border-color);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 0 3px 3px 0;
+        cursor: pointer;
+        font-size: 0.75rem;
+        height: 26px;
+        min-width: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .file-picker-btn:hover {
+        background: var(--accent-hover);
+      }
+
+      select:focus,
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      /* Language, Framework, Provider - single compact row */
+      .config-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 100px;
+        gap: 6px;
+        align-items: flex-end;
+      }
+
+      /* Quick options row */
+      .quick-options-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+        align-items: center;
+        margin: 2px 0;
+      }
+
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin: 0;
+      }
+
+      .checkbox-group label {
+        margin: 0;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        cursor: pointer;
+      }
+
+      .checkbox-group input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+        transform: scale(0.9);
+        cursor: pointer;
+      }
+
+      /* Main action buttons */
+      .action-buttons-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .btn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 5px 8px;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 500;
+        transition: background 0.2s;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 60px;
+      }
+
+      .btn:hover {
+        background: var(--accent-hover);
+      }
+
+      .btn-secondary {
+        background: var(--border-color);
+        color: var(--text-color);
+      }
+
+      .btn-secondary:hover {
+        background: #4a4a4a;
+      }
+
+      /* ==================== SLIDE PANEL ==================== */
       .slide-panel {
         position: fixed;
         bottom: 0;
@@ -180,11 +341,12 @@
         right: 0;
         background: var(--card-bg);
         border-top: 1px solid var(--border-color);
-        transform: translateY(calc(100% - 40px));
+        transform: translateY(calc(100% - 30px));
         transition: transform 0.3s ease;
         z-index: 100;
-        max-height: 70vh;
+        max-height: 60vh;
         overflow-y: auto;
+        font-size: 0.8rem;
       }
 
       .slide-panel.open {
@@ -195,10 +357,12 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 8px;
+        padding: 6px;
         background: var(--header-bg);
         cursor: pointer;
         border-bottom: 1px solid var(--border-color);
+        font-size: 0.75rem;
+        min-height: 30px;
       }
 
       .slide-panel-handle:hover {
@@ -207,95 +371,27 @@
 
       .slide-panel-content {
         padding: 10px;
-      }
-
-      .form-group {
-        margin-bottom: 12px;
-      }
-
-      .form-group label {
-        display: block;
-        margin-bottom: 4px;
-        font-weight: 500;
-        color: var(--text-color);
-        font-size: 0.85rem;
-      }
-
-      select,
-      input[type="number"],
-      input[type="text"] {
-        width: 100%;
-        background: var(--bg-color);
-        border: 1px solid var(--border-color);
-        color: var(--text-color);
-        padding: 6px 8px;
-        border-radius: 4px;
-        font-size: 0.85rem;
-      }
-
-      select:focus,
-      input:focus {
-        outline: none;
-        border-color: var(--accent);
-      }
-
-      .checkbox-group {
         display: flex;
-        align-items: center;
-        gap: 6px;
-        margin: 8px 0;
+        flex-direction: column;
+        gap: 10px;
       }
 
-      .checkbox-group input[type="checkbox"] {
-        width: auto;
-      }
-
-      .checkbox-group label {
-        margin: 0;
-        font-size: 0.85rem;
-      }
-
-      .grid-2 {
+      /* Advanced options grid */
+      .advanced-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(4, 1fr);
         gap: 8px;
       }
 
-      .grid-3 {
+      .advanced-grid .form-group {
+        margin-bottom: 0;
+      }
+
+      /* Panel action buttons */
+      .panel-buttons-row {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 6px;
-      }
-
-      .grid-4 {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1fr;
-        gap: 6px;
-      }
-
-      .btn {
-        background: var(--accent);
-        color: white;
-        border: none;
-        padding: 8px 12px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85rem;
-        font-weight: 500;
-        transition: background 0.2s;
-        width: 100%;
-      }
-
-      .btn:hover {
-        background: var(--accent-hover);
-      }
-
-      .btn-secondary {
-        background: var(--border-color);
-      }
-
-      .btn-secondary:hover {
-        background: #4a4a4a;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
       }
 
       .btn-success {
@@ -315,29 +411,22 @@
         background: #e6b800;
       }
 
-      .buttons {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-        margin: 12px 0;
-      }
-
       .buttons-single {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 8px;
-        margin: 12px 0;
+        gap: 6px;
       }
 
+      /* Coverage section */
       .coverage-section {
-        margin-top: 12px;
-        padding-top: 12px;
+        margin-top: 8px;
+        padding-top: 8px;
         border-top: 1px solid var(--border-color);
       }
 
       .coverage-section h3 {
         margin-bottom: 6px;
-        font-size: 0.9rem;
+        font-size: 0.8rem;
         color: var(--text-color);
         font-weight: 500;
       }
@@ -345,62 +434,23 @@
       .coverage-result {
         background: var(--bg-color);
         border: 1px solid var(--border-color);
-        border-radius: 4px;
-        padding: 8px;
-        min-height: 60px;
-        max-height: 120px;
+        border-radius: 3px;
+        padding: 6px;
+        min-height: 50px;
+        max-height: 100px;
         overflow-y: auto;
         font-family: "Cascadia Code", "Consolas", monospace;
-        font-size: 11px;
+        font-size: 10px;
         line-height: 1.3;
         white-space: pre-wrap;
       }
 
-      .footer {
-        text-align: center;
-        padding: 8px 16px;
-        color: var(--text-muted);
-        font-size: 0.7rem;
-        border-top: 1px solid var(--border-color);
-        background: var(--header-bg);
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .status {
-        padding: 6px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        margin-bottom: 8px;
-      }
-
-      .status.info {
-        background: rgba(0, 122, 204, 0.1);
-        border: 1px solid var(--accent);
-      }
-
-      .status.success {
-        background: rgba(78, 201, 176, 0.1);
-        border: 1px solid var(--success);
-      }
-
-      .status.warning {
-        background: rgba(255, 204, 2, 0.1);
-        border: 1px solid var(--warning);
-      }
-
-      .status.error {
-        background: rgba(244, 135, 113, 0.1);
-        border: 1px solid var(--error);
-      }
-
+      /* ==================== QUALITY INDICATORS ==================== */
       .quality-indicators {
         display: flex;
-        gap: 12px;
+        gap: 8px;
         margin-bottom: 8px;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         flex-wrap: wrap;
       }
 
@@ -412,9 +462,10 @@
         align-items: center;
         gap: 4px;
         padding: 4px 8px;
-        border-radius: 4px;
+        border-radius: 3px;
         background: var(--card-bg);
         border: 1px solid var(--border-color);
+        min-height: 24px;
       }
 
       .score-label,
@@ -422,6 +473,7 @@
       .stats-label,
       .complexity-label {
         color: var(--text-muted);
+        font-size: 0.7rem;
       }
 
       .score-value,
@@ -430,6 +482,7 @@
       .complexity-value {
         color: var(--text-color);
         font-weight: 500;
+        font-size: 0.75rem;
       }
 
       .score-value.excellent {
@@ -449,10 +502,10 @@
         display: none;
         background: var(--card-bg);
         border: 1px solid var(--border-color);
-        border-radius: 4px;
-        padding: 8px;
-        margin-bottom: 8px;
-        font-size: 0.8rem;
+        border-radius: 3px;
+        padding: 6px;
+        margin-bottom: 6px;
+        font-size: 0.75rem;
       }
 
       .quality-details.visible {
@@ -461,9 +514,9 @@
 
       .quality-features {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 6px;
-        margin-top: 6px;
+        margin-top: 4px;
       }
 
       .quality-feature {
@@ -487,116 +540,58 @@
       }
 
       .feature-label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--text-muted);
       }
 
-      .advanced-toggle {
-        background: none;
-        border: none;
-        color: var(--accent);
+      .hidden {
+        display: none !important;
+      }
+
+      .status {
+        padding: 5px 6px;
+        border-radius: 3px;
         font-size: 0.75rem;
-        cursor: pointer;
-        padding: 4px 0;
-        text-align: left;
-        display: flex;
-        align-items: center;
-        gap: 4px;
+        margin-bottom: 6px;
       }
 
-      .advanced-toggle:hover {
-        text-decoration: underline;
+      .status.info {
+        background: rgba(0, 122, 204, 0.1);
+        border: 1px solid var(--accent);
       }
 
-      .advanced-options {
-        display: none;
-        background: var(--bg-color);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        padding: 8px;
-        margin-top: 8px;
-        margin-bottom: 12px;
+      .status.success {
+        background: rgba(78, 201, 176, 0.1);
+        border: 1px solid var(--success);
       }
 
-      .advanced-options.visible {
-        display: block;
+      .status.warning {
+        background: rgba(255, 204, 2, 0.1);
+        border: 1px solid var(--warning);
       }
 
-      .file-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 4px 0;
+      .status.error {
+        background: rgba(244, 135, 113, 0.1);
+        border: 1px solid var(--error);
       }
 
-      .file-language-badge {
-        padding: 1px 6px;
-        border-radius: 10px;
-        font-size: 0.7rem;
-        font-weight: 500;
-        min-width: 60px;
+      .footer {
         text-align: center;
+        padding: 6px 12px;
+        color: var(--text-muted);
+        font-size: 0.65rem;
+        border-top: 1px solid var(--border-color);
+        background: var(--header-bg);
+        min-height: 28px;
       }
 
-      .file-name {
-        flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .language-selector {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      .lang-btn {
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        cursor: pointer;
-        border: 1px solid var(--border-color);
-        background: var(--card-bg);
-        color: var(--text-color);
-        flex: 1;
-        text-align: center;
-      }
-
-      .lang-btn.active {
-        border-color: var(--accent);
-        background: var(--accent);
-        color: white;
-      }
-
-      .lang-btn:hover:not(.active) {
-        background: var(--border-color);
-      }
-
-      /* Scrollbar styling */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      ::-webkit-scrollbar-track {
-        background: var(--bg-color);
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: 4px;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555;
-      }
-
+      /* Language select container */
       .language-select-container {
         position: relative;
       }
 
       .language-select-container select {
-        padding-right: 24px;
+        padding-right: 20px;
         appearance: none;
         -webkit-appearance: none;
         -moz-appearance: none;
@@ -605,12 +600,62 @@
       .language-select-container::after {
         content: "▼";
         position: absolute;
-        right: 10px;
+        right: 8px;
         top: 50%;
         transform: translateY(-50%);
         pointer-events: none;
         color: var(--text-muted);
+        font-size: 0.6rem;
+      }
+
+      /* Scrollbar styling */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-color);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+
+      /* Tooltip */
+      .tooltip {
+        position: relative;
+        display: inline-block;
+      }
+
+      .tooltip .tooltip-text {
+        visibility: hidden;
+        width: 180px;
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        text-align: left;
+        border-radius: 3px;
+        border: 1px solid var(--border-color);
+        padding: 6px 8px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
         font-size: 0.7rem;
+        opacity: 0;
+        transition: opacity 0.3s;
+        pointer-events: none;
+        white-space: normal;
+      }
+
+      .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
       }
     </style>
   </head>
@@ -627,7 +672,7 @@
         </div>
       </div>
 
-      <!-- Main Result Area (Top) -->
+      <!-- Main Result Area -->
       <div class="result-section">
         <div class="quality-indicators">
           <div class="quality-score">
@@ -675,45 +720,53 @@
         </div>
       </div>
 
-      <!-- Fixed Controls Section -->
+      <!-- Fixed Controls - COMPACT LAYOUT -->
       <div class="fixed-controls">
-        <div class="grid-2">
-          <div class="form-group">
+        <!-- File selection -->
+        <div class="file-selection-row">
+          <div class="form-group tooltip" style="flex: 2">
             <label for="fileSelect">Source File</label>
-            <select id="fileSelect">
-              <option value="">Loading files...</option>
-            </select>
-          </div>
-
-          <div class="form-group language-select-container">
-            <label for="language">Programming Language</label>
-            <select id="language">
-              <option value="python">Python</option>
-              <option value="javascript">JavaScript</option>
-              <option value="typescript">TypeScript</option>
-              <option value="java">Java</option>
-              <option value="csharp">C#</option>
-              <option value="go">Go</option>
-              <option value="rust">Rust</option>
-              <option value="php">PHP</option>
-              <option value="ruby">Ruby</option>
-              <option value="kotlin">Kotlin</option>
-              <option value="swift">Swift</option>
-              <option value="cpp">C++</option>
-            </select>
+            <div class="file-picker-container">
+              <input
+                type="text"
+                id="fileSelect"
+                readonly
+                placeholder="Click to select file..."
+              />
+              <button id="filePickerBtn" class="file-picker-btn">📁</button>
+            </div>
+            <span class="tooltip-text"
+              >Select source code file to generate tests for</span
+            >
           </div>
         </div>
 
-        <div class="grid-2">
-          <div class="form-group">
+        <!-- Language, Framework, Provider in one compact row -->
+        <div class="config-row">
+          <div class="form-group tooltip">
+            <label for="language">Language</label>
+            <div class="language-select-container">
+              <select id="language">
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="java">Java</option>
+              </select>
+            </div>
+            <span class="tooltip-text"
+              >Programming language of source file</span
+            >
+          </div>
+
+          <div class="form-group tooltip">
             <label for="testFramework">Test Framework</label>
             <select id="testFramework">
               <option value="unittest">unittest</option>
               <option value="pytest">pytest</option>
             </select>
+            <span class="tooltip-text">Testing framework to use</span>
           </div>
 
-          <div class="form-group">
+          <div class="form-group tooltip">
             <label for="provider">AI Provider</label>
             <select id="provider">
               <option value="openai">GPT-OSS-20B</option>
@@ -723,13 +776,46 @@
               <option value="codexmini">CodeX-Mini</option>
               <option value="deepseek">DeepSeek</option>
             </select>
+            <span class="tooltip-text">AI model to generate tests</span>
           </div>
         </div>
 
-        <div class="buttons">
+        <!-- Quick options -->
+        <div class="quick-options-row">
+          <div class="checkbox-group tooltip">
+            <input id="edgeCases" type="checkbox" checked />
+            <label for="edgeCases">Edge Cases</label>
+            <span class="tooltip-text">Include edge/boundary cases</span>
+          </div>
+          <div class="checkbox-group tooltip">
+            <input id="errorCases" type="checkbox" checked />
+            <label for="errorCases">Error Cases</label>
+            <span class="tooltip-text">Include error/exception handling</span>
+          </div>
+          <div class="checkbox-group tooltip">
+            <input id="mocking" type="checkbox" checked />
+            <label for="mocking">Mocking</label>
+            <span class="tooltip-text">Use mocking for dependencies</span>
+          </div>
+          <div class="checkbox-group tooltip">
+            <input
+              id="testCases"
+              type="number"
+              value="3"
+              min="1"
+              max="10"
+              style="width: 50px; height: 22px; padding: 2px 4px"
+            />
+            <label for="testCases">Test Cases</label>
+            <span class="tooltip-text">Number of test cases to generate</span>
+          </div>
+        </div>
+
+        <!-- Main action buttons -->
+        <div class="action-buttons-row">
           <button id="generateBtn" class="btn">Generate Tests</button>
           <button id="togglePanelBtn" class="btn btn-secondary">
-            ⚙️ Advanced Options
+            ⚙️ Advanced
           </button>
         </div>
       </div>
@@ -740,80 +826,49 @@
           <span>▼ Advanced Configuration</span>
         </div>
         <div class="slide-panel-content">
-          <div class="advanced-options visible">
-            <div class="grid-3">
-              <div class="checkbox-group">
-                <input id="edgeCases" type="checkbox" checked />
-                <label for="edgeCases">Edge Cases</label>
-              </div>
-              <div class="checkbox-group">
-                <input id="errorCases" type="checkbox" checked />
-                <label for="errorCases">Error Cases</label>
-              </div>
-              <div class="checkbox-group">
-                <input id="mocking" type="checkbox" checked />
-                <label for="mocking">Mocking</label>
-              </div>
+          <!-- Advanced options grid -->
+          <div class="advanced-grid">
+            <div class="form-group tooltip">
+              <label for="testStyle">Test Style</label>
+              <select id="testStyle">
+                <option value="given_when_then">Given-When-Then</option>
+                <option value="arrange_act_assert">Arrange-Act-Assert</option>
+              </select>
+              <span class="tooltip-text">Structure of test cases</span>
             </div>
-
-            <div class="grid-2">
-              <div class="form-group">
-                <label for="testCases">Test Cases</label>
-                <input
-                  id="testCases"
-                  type="number"
-                  value="3"
-                  min="1"
-                  max="10"
-                />
-              </div>
-              <div class="form-group">
-                <label for="coverage">Coverage Target</label>
-                <input
-                  id="coverage"
-                  type="number"
-                  value="80"
-                  min="50"
-                  max="100"
-                />
-              </div>
+            <div class="form-group tooltip">
+              <label for="mockingFramework">Mocking Framework</label>
+              <select id="mockingFramework">
+                <option value="unittest.mock">unittest.mock</option>
+                <option value="pytest-mock">pytest-mock</option>
+                <option value="freezegun">freezegun</option>
+              </select>
+              <span class="tooltip-text">Mocking library to use</span>
             </div>
-
-            <div class="grid-2">
-              <div class="form-group">
-                <label for="testStyle">Test Style</label>
-                <select id="testStyle">
-                  <option value="given_when_then">Given-When-Then</option>
-                  <option value="arrange_act_assert">Arrange-Act-Assert</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="mockingFramework">Mocking Framework</label>
-                <select id="mockingFramework">
-                  <option value="unittest.mock">unittest.mock</option>
-                  <option value="pytest-mock">pytest-mock</option>
-                  <option value="freezegun">freezegun</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="buttons-single">
-              <button id="saveFile" class="btn btn-success hidden">
-                💾 Save Test File
-              </button>
+            <div class="form-group tooltip">
+              <label for="coverage">Coverage Target %</label>
+              <input
+                id="coverage"
+                type="number"
+                value="80"
+                min="50"
+                max="100"
+              />
+              <span class="tooltip-text">Target test coverage percentage</span>
             </div>
           </div>
 
-          <div class="buttons">
+          <!-- Panel action buttons -->
+          <div class="panel-buttons-row">
             <button id="coverageBtn" class="btn btn-secondary">
-              📊 Run Coverage
+              📊 Coverage Analysis
             </button>
-            <button id="analyzeBtn" class="btn btn-warning">
-              🔍 Analyze Quality
+            <button id="saveFile" class="btn btn-success hidden">
+              💾 Save Test File
             </button>
           </div>
 
+          <!-- Coverage section -->
           <div class="coverage-section">
             <h3>Coverage Report</h3>
             <div id="coverageResult" class="coverage-result">
@@ -834,20 +889,45 @@
       let currentLanguage = "python";
       let currentFileList = [];
       let languageFrameworks = {};
-      const LANGUAGE_FRAMEWORKS = { LANGUAGE_FRAMEWORKS };
+      let selectedFile = null;
+      const LANGUAGE_FRAMEWORKS_JSON = JSON.parse(
+        `{LANGUAGE_FRAMEWORKS_ESCAPED}`
+      );
 
       // Initialize when DOM is loaded
       window.addEventListener("DOMContentLoaded", () => {
-        // Initialize language frameworks from injected data
-        languageFrameworks = LANGUAGE_FRAMEWORKS || {};
+        console.log("DOMContentLoaded fired - Webview ready");
+        languageFrameworks = LANGUAGE_FRAMEWORKS_JSON || {};
+
+        const fileSelect = document.getElementById("fileSelect");
+        const filePickerBtn = document.getElementById("filePickerBtn");
+
+        // Set initial placeholder
+        fileSelect.placeholder = "Loading workspace files...";
+
+        // Add click handler for file picker button
+        filePickerBtn.addEventListener("click", () => {
+          console.log("File picker button clicked");
+          vscode.postMessage({ command: "openFilePicker" });
+        });
+
+        // Also make the input clickable
+        fileSelect.addEventListener("click", () => {
+          console.log("File select input clicked");
+          vscode.postMessage({ command: "openFilePicker" });
+        });
 
         // Notify host that the webview is ready
         vscode.postMessage({ command: "ready" });
 
         // Request file list after a brief delay
         setTimeout(() => {
+          console.log("Sending requestFileList");
           try {
-            vscode.postMessage({ command: "requestFileList" });
+            vscode.postMessage({
+              command: "requestFileList",
+              language: currentLanguage,
+            });
           } catch (e) {
             console.error("Failed to post requestFileList message:", e);
           }
@@ -879,7 +959,14 @@
 
         switch (message.command) {
           case "fileList":
+            console.log(
+              "Files received count:",
+              Array.isArray(message.files) ? message.files.length : "not array"
+            );
             updateFileList(message.files);
+            break;
+          case "selectedFile":
+            updateSelectedFile(message.file);
             break;
           case "showResult":
             showResult(message.result, message.metadata);
@@ -910,20 +997,24 @@
 
       function updateFileList(files) {
         console.log("updateFileList called with:", files);
-        const select = document.getElementById("fileSelect");
-        select.innerHTML = "";
-        currentFileList = files || [];
+        const fileSelect = document.getElementById("fileSelect");
 
-        if (!files || files.length === 0) {
-          const option = document.createElement("option");
-          option.value = "";
-          option.textContent = "No source files found in workspace";
-          select.appendChild(option);
+        if (files && files.error) {
+          console.error("Error from extension:", files.error);
+          fileSelect.placeholder = `Error: ${files.error}`;
+          currentFileList = [];
           return;
         }
 
-        // Normalize file items
-        const normalized = files
+        if (!Array.isArray(files) || files.length === 0) {
+          console.warn("Empty or invalid files array received");
+          fileSelect.placeholder = "No source files found in workspace";
+          currentFileList = [];
+          return;
+        }
+
+        // Store the file list for picker
+        currentFileList = files
           .map((item) => {
             if (typeof item === "string") {
               return { path: item, language: detectLanguageFromPath(item) };
@@ -932,41 +1023,30 @@
               path: item.path || item.uri || item.fsPath || item.file || "",
               language:
                 item.language || detectLanguageFromPath(item.path || ""),
+              fullPath: item.fullPath || "",
             };
           })
           .filter((item) => item.path);
 
-        // Create optgroup for each language
-        const languageGroups = {};
-        normalized.forEach((item) => {
-          if (!languageGroups[item.language]) {
-            languageGroups[item.language] = [];
+        fileSelect.placeholder = "Click to select file...";
+        console.log("Stored", currentFileList.length, "files for picker");
+      }
+
+      function updateSelectedFile(file) {
+        const fileSelect = document.getElementById("fileSelect");
+        if (file && file.path) {
+          fileSelect.value = file.path;
+          selectedFile = file;
+          // Also update language if available
+          if (file.language) {
+            document.getElementById("language").value = file.language;
+            currentLanguage = file.language;
+            updateLanguageBadge();
+            updateFrameworkOptions();
           }
-          languageGroups[item.language].push(item);
-        });
-
-        // Sort languages alphabetically
-        const sortedLanguages = Object.keys(languageGroups).sort();
-
-        // Create optgroups
-        sortedLanguages.forEach((lang) => {
-          const optgroup = document.createElement("optgroup");
-          optgroup.label = lang.charAt(0).toUpperCase() + lang.slice(1);
-
-          languageGroups[lang].forEach((item) => {
-            const option = document.createElement("option");
-            option.value = item.path;
-            option.textContent = getFileNameFromPath(item.path);
-            option.title = item.path;
-            option.dataset.language = lang;
-
-            // Style option based on language
-            option.style.color = getLanguageColor(lang);
-            optgroup.appendChild(option);
-          });
-
-          select.appendChild(optgroup);
-        });
+        } else {
+          console.warn("Invalid file object received:", file);
+        }
       }
 
       function detectLanguageFromPath(path) {
@@ -974,24 +1054,7 @@
         const extensionMap = {
           py: "python",
           js: "javascript",
-          jsx: "javascript",
-          ts: "typescript",
-          tsx: "typescript",
           java: "java",
-          cs: "csharp",
-          go: "go",
-          rs: "rust",
-          php: "php",
-          rb: "ruby",
-          kt: "kotlin",
-          kts: "kotlin",
-          swift: "swift",
-          cpp: "cpp",
-          cc: "cpp",
-          cxx: "cpp",
-          h: "cpp",
-          hpp: "cpp",
-          hxx: "cpp",
         };
         return extensionMap[ext] || "python";
       }
@@ -1007,14 +1070,6 @@
           javascript: "#f1e05a",
           typescript: "#3178c6",
           java: "#b07219",
-          csharp: "#178600",
-          go: "#00ADD8",
-          rust: "#dea584",
-          php: "#4F5D95",
-          ruby: "#701516",
-          kotlin: "#F18E33",
-          swift: "#F05138",
-          cpp: "#f34b7d",
         };
         return colorMap[language] || "#cccccc";
       }
@@ -1103,25 +1158,10 @@
             assertion: /\bexpect\(|\bassert\(|\bshould\.equal/g,
             mocking: /\bjest\.mock|\bsinon|\bMock\b/,
           },
-          typescript: {
-            testFunction: /\b(it|test)\(/g,
-            assertion: /\bexpect\(|\bassert\(|\bshould\.equal/g,
-            mocking: /\bjest\.mock|\bsinon|\bMock\b/,
-          },
           java: {
             testFunction: /\b@Test\b|\bpublic void test/g,
             assertion: /\bassertThat\(|\bassertEquals\(|\bassertTrue\(/g,
             mocking: /\b@Mock|\bMockito/,
-          },
-          csharp: {
-            testFunction: /\b\[Test\]|\bpublic void Test/g,
-            assertion: /\bAssert\.Equal\(|\bAssert\.True\(|\bAssert\.False\(/g,
-            mocking: /\bMock<|\bIt\.IsAny/,
-          },
-          go: {
-            testFunction: /\bfunc Test\w+\(/g,
-            assertion: /\bt\.Error\(|\bt\.Fatal\(|\bt\.Fatalf\(/g,
-            mocking: /\bNewMock|\bgomock/,
           },
         };
 
@@ -1294,7 +1334,6 @@
           mockingFrameworks: ["custom"],
         };
 
-        // Update test framework dropdown
         const testFrameworkSelect = document.getElementById("testFramework");
         testFrameworkSelect.innerHTML = "";
         frameworks.testFrameworks.forEach((framework) => {
@@ -1304,7 +1343,6 @@
           testFrameworkSelect.appendChild(option);
         });
 
-        // Update mocking framework dropdown
         const mockingFrameworkSelect =
           document.getElementById("mockingFramework");
         mockingFrameworkSelect.innerHTML = "";
@@ -1320,14 +1358,11 @@
           command: "getLanguageFrameworks",
           language: currentLanguage,
         });
-      }
 
-      function updateLanguageFrameworkOptions(language, frameworks) {
-        if (language === currentLanguage) {
-          // Update UI with fresh framework data
-          languageFrameworks[language] = frameworks;
-          updateFrameworkOptions();
-        }
+        vscode.postMessage({
+          command: "requestFileList",
+          language: currentLanguage,
+        });
       }
 
       function updateCurrentFileInfo(message) {
@@ -1342,11 +1377,31 @@
         }
       }
 
+      document.getElementById("language").addEventListener("change", (e) => {
+        currentLanguage = e.target.value;
+        updateLanguageBadge();
+        updateFrameworkOptions();
+
+        // Kirim perubahan language ke extension untuk filter file
+        vscode.postMessage({
+          command: "languageChanged",
+          language: currentLanguage,
+        });
+
+        // Request file list yang sudah difilter
+        vscode.postMessage({
+          command: "requestFileList",
+          language: currentLanguage,
+        });
+
+        // Save language state
+        vscode.setState({ language: currentLanguage });
+      });
+
       // Event listeners
       document.getElementById("generateBtn").addEventListener("click", () => {
-        const fileName = document.getElementById("fileSelect").value;
-        if (!fileName) {
-          showStatus("Please select a source file", "error");
+        if (!selectedFile) {
+          showStatus("Please select a source file first", "error");
           return;
         }
 
@@ -1357,7 +1412,7 @@
 
         vscode.postMessage({
           command: "generate",
-          fileName: fileName,
+          file: selectedFile,
           language: language,
           provider: document.getElementById("provider").value,
           framework: document.getElementById("testFramework").value,
@@ -1379,21 +1434,6 @@
           "Running coverage analysis...";
         vscode.postMessage({
           command: "generateCoverage",
-          language: currentLanguage,
-        });
-      });
-
-      document.getElementById("analyzeBtn").addEventListener("click", () => {
-        const testCode = lastGeneratedResult;
-        if (!testCode) {
-          showStatus("No test code to analyze", "error");
-          return;
-        }
-
-        vscode.postMessage({
-          command: "analyzeQuality",
-          testCode: testCode,
-          sourceCode: "",
           language: currentLanguage,
         });
       });
@@ -1422,15 +1462,6 @@
 
       document.getElementById("panelHandle").addEventListener("click", () => {
         toggleSlidePanel(!isPanelOpen);
-      });
-
-      document.getElementById("language").addEventListener("change", (e) => {
-        currentLanguage = e.target.value;
-        updateLanguageBadge();
-        updateFrameworkOptions();
-
-        // Save language state
-        vscode.setState({ language: currentLanguage });
       });
 
       // Auto-resize result area

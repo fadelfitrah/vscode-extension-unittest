@@ -2,17 +2,15 @@ import * as vscode from "vscode";
 import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
-let runtimeFetch: any = (globalThis as any).fetch;
+const runtimeFetch = globalThis.fetch;
 import { spawn } from "child_process";
 import * as os from "os";
 import { randomBytes } from "crypto";
 
 // Load .env dari root project ekstensi (opsional)
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log("generator-vscode-unittest: activate() called");
-
+  dotenv.config({ path: path.resolve(__dirname, "../.env") });
   try {
     const provider = new UnitTestViewProvider(context.extensionUri);
     context.subscriptions.push(
@@ -23,6 +21,15 @@ export function activate(context: vscode.ExtensionContext) {
           webviewOptions: {
             retainContextWhenHidden: true,
           },
+        }
+      )
+    );
+
+    context.subscriptions.push(
+      vscode.commands.registerCommand(
+        "generator-vscode-unittest.reloadFiles",
+        async () => {
+          await vscode.commands.executeCommand("unitTestGeneratorView.focus");
         }
       )
     );
@@ -64,7 +71,7 @@ interface TestGenerationConfig {
   maxTokens: number;
 
   // Language and Framework Configuration
-  programmingLanguage: string;
+  programmingLanguage: "python" | "javascript" | "java";
   testFramework: string;
   testStyle: "given_when_then" | "arrange_act_assert";
   includeAssertions: boolean;
@@ -108,58 +115,22 @@ interface TestQualityMetrics {
   estimatedMutationScore?: number;
 }
 
-// Language and Framework Mappings
+// Language and Framework Mappings - HANYA 3 BAHASA
 const LANGUAGE_FRAMEWORKS: Record<
   string,
   { testFrameworks: string[]; mockingFrameworks: string[] }
 > = {
   python: {
-    testFrameworks: ["unittest", "pytest", "nose"],
-    mockingFrameworks: ["unittest.mock", "pytest-mock", "freezegun"],
+    testFrameworks: ["unittest", "pytest"],
+    mockingFrameworks: ["unittest.mock", "pytest-mock"],
   },
   javascript: {
-    testFrameworks: ["jest", "mocha", "jasmine", "vitest"],
-    mockingFrameworks: ["jest", "sinon", "testdouble"],
-  },
-  typescript: {
-    testFrameworks: ["jest", "mocha", "jasmine", "vitest"],
-    mockingFrameworks: ["jest", "sinon", "testdouble"],
+    testFrameworks: ["jest", "mocha"],
+    mockingFrameworks: ["jest", "sinon"],
   },
   java: {
-    testFrameworks: ["junit", "testng", "mockito"],
-    mockingFrameworks: ["mockito", "easymock", "powermock"],
-  },
-  csharp: {
-    testFrameworks: ["nunit", "xunit", "mstest"],
-    mockingFrameworks: ["moq", "nsubstitute", "fakeiteasy"],
-  },
-  go: {
-    testFrameworks: ["testing", "testify", "ginkgo"],
-    mockingFrameworks: ["gomock", "testify/mock"],
-  },
-  rust: {
-    testFrameworks: ["builtin", "proptest", "quickcheck"],
-    mockingFrameworks: ["mockall", "mockito"],
-  },
-  php: {
-    testFrameworks: ["phpunit", "pest"],
-    mockingFrameworks: ["mockery", "prophecy"],
-  },
-  ruby: {
-    testFrameworks: ["minitest", "rspec"],
-    mockingFrameworks: ["rspec-mocks", "mocha"],
-  },
-  kotlin: {
-    testFrameworks: ["kotest", "junit", "spek"],
-    mockingFrameworks: ["mockk", "mockito"],
-  },
-  swift: {
-    testFrameworks: ["xctest", "quick", "nimble"],
-    mockingFrameworks: ["cuckoo", "swiftmock"],
-  },
-  cpp: {
-    testFrameworks: ["gtest", "catch2", "doctest"],
-    mockingFrameworks: ["gmock", "trompeloeil"],
+    testFrameworks: ["junit", "testng"],
+    mockingFrameworks: ["mockito"],
   },
 };
 
@@ -178,24 +149,9 @@ const DEFAULT_CONFIG_BY_LANGUAGE: Record<
     mockingFramework: "jest",
     requireDocstrings: true,
   },
-  typescript: {
-    testFramework: "jest",
-    mockingFramework: "jest",
-    requireDocstrings: true,
-  },
   java: {
     testFramework: "junit",
     mockingFramework: "mockito",
-    requireDocstrings: true,
-  },
-  csharp: {
-    testFramework: "nunit",
-    mockingFramework: "moq",
-    requireDocstrings: true,
-  },
-  go: {
-    testFramework: "testing",
-    mockingFramework: "gomock",
     requireDocstrings: true,
   },
 };
@@ -238,11 +194,18 @@ const DEFAULT_TEST_CONFIG: TestGenerationConfig = {
 };
 
 class UnitTestViewProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = "unitTestGeneratorView";
+  public static readonly viewType = "unittestGeneratorView";
   private _view?: vscode.WebviewView;
+  private _currentFileList: any[] = [];
 
   constructor(private readonly _extensionUri: vscode.Uri) {}
 
+  private _updateFileListCache(files: any[]) {
+    this._currentFileList = files;
+    console.log(`Updated file list cache with ${files.length} files`);
+  }
+
+  private _isFirstLoad: boolean = true;
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
     context: vscode.WebviewViewResolveContext,
@@ -255,7 +218,10 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
     // Configure webview options
     webviewView.webview.options = {
       enableScripts: true,
-      localResourceRoots: [this._extensionUri],
+      localResourceRoots: [
+        this._extensionUri,
+        vscode.Uri.joinPath(this._extensionUri, "resources"),
+      ],
     };
 
     // Set HTML content
@@ -271,77 +237,62 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
         lastActiveFile.fileName = path.basename(doc.fileName);
         lastActiveFile.language = doc.languageId;
 
-        this._postMessage(webviewView, {
-          command: "loadCode",
-          code: lastActiveFile.code,
-          fileName: lastActiveFile.fileName,
-          language: lastActiveFile.language,
-        });
+        // Hanya proses jika bahasa didukung
+        if (["python", "javascript", "java"].includes(doc.languageId)) {
+          this._postMessage(webviewView, {
+            command: "loadCode",
+            code: lastActiveFile.code,
+            fileName: lastActiveFile.fileName,
+            language: doc.languageId,
+          });
 
-        // Send available frameworks for this language
-        this._sendLanguageFrameworks(webviewView, lastActiveFile.language);
+          // Send available frameworks for this language
+          this._sendLanguageFrameworks(webviewView, doc.languageId);
+
+          if (this._isFirstLoad) {
+            this._postMessage(webviewView, {
+              command: "selectedFile",
+              file: {
+                path: doc.fileName,
+                language: doc.languageId,
+                fullPath: doc.fileName,
+              },
+            });
+            this._isFirstLoad = false;
+          }
+        }
       }
     };
 
     const sendSourceFiles = async () => {
-      const workspaceFolders = vscode.workspace.workspaceFolders;
-      if (!workspaceFolders || workspaceFolders.length === 0) {
-        this._postMessage(webviewView, { command: "fileList", files: [] });
-        return;
-      }
+      const activeLanguage =
+        vscode.window.activeTextEditor?.document.languageId;
+      const validLanguage = ["python", "javascript", "java"].includes(
+        activeLanguage || ""
+      )
+        ? activeLanguage
+        : "python";
 
-      try {
-        // Get all source files based on supported languages
-        const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
-          .map((lang) => `**/*.${getFileExtension(lang)}`)
-          .concat(
-            "**/*.js",
-            "**/*.ts",
-            "**/*.jsx",
-            "**/*.tsx",
-            "**/*.java",
-            "**/*.cs",
-            "**/*.go",
-            "**/*.rs",
-            "**/*.php",
-            "**/*.rb",
-            "**/*.kt",
-            "**/*.swift",
-            "**/*.cpp",
-            "**/*.h",
-            "**/*.hpp"
-          );
-
-        const files = await vscode.workspace.findFiles(
-          `{${sourceExtensions.join(",")}}`,
-          "**/node_modules/**,**/vendor/**,**/.git/**"
-        );
-
-        const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
-        const fileList = files.map((uri) => ({
-          path: uri.fsPath.replace(/\\/g, "/").replace(root + "/", ""),
-          language: getLanguageFromExtension(path.extname(uri.fsPath)),
-        }));
-
-        this._postMessage(webviewView, {
-          command: "fileList",
-          files: fileList,
-        });
-      } catch (error) {
-        console.error("Error finding source files:", error);
-        this._postMessage(webviewView, { command: "fileList", files: [] });
-      }
+      await this._sendSourceFiles(webviewView, validLanguage);
     };
 
     // Setup message handling
     this._setupMessageHandlers(webviewView);
 
     // Setup file watchers and event listeners
-    this._setupEventListeners(webviewView, updateActiveFile, sendSourceFiles);
+    this._setupEventListeners(webviewView, updateActiveFile);
 
     // Initial data load
     updateActiveFile();
     sendSourceFiles();
+
+    setTimeout(() => {
+      this._postMessage(webviewView, {
+        command: "status",
+        message: "Extension ready. Auto-loaded active file.",
+        type: "success",
+      });
+    }, 500);
 
     console.log("Webview view resolved successfully");
   }
@@ -353,15 +304,28 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       try {
         switch (message.command) {
           case "ready":
-            await this._sendSourceFiles(webviewView);
+            await this._autoSelectInitialFile(webviewView);
+            const activeLanguage =
+              vscode.window.activeTextEditor?.document.languageId;
+            await this._sendSourceFiles(webviewView, activeLanguage);
             this._postMessage(webviewView, {
               command: "status",
               message: "Extension ready",
+              type: "success",
             });
             break;
 
           case "requestFileList":
-            await this._sendSourceFiles(webviewView);
+            await this._sendSourceFiles(webviewView, message.language);
+            break;
+
+          case "languageChanged":
+            // Handle ketika language berubah di webview
+            await this._sendSourceFiles(webviewView, message.language);
+            break;
+
+          case "openFilePicker":
+            await this._openFilePicker(webviewView);
             break;
 
           case "getLanguageFrameworks":
@@ -398,33 +362,67 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
 
   private _setupEventListeners(
     webviewView: vscode.WebviewView,
-    updateActiveFile: () => void,
-    sendSourceFiles: () => void
+    updateActiveFile: () => void
   ) {
-    // File system watcher for source files
-    const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
-      .map((lang) => `**/*.${getFileExtension(lang)}`)
-      .join(",");
+    let refreshTimeout: NodeJS.Timeout | undefined;
 
+    const refreshFileList = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        const activeLanguage =
+          vscode.window.activeTextEditor?.document.languageId;
+        const validLanguage = ["python", "javascript", "java"].includes(
+          activeLanguage || ""
+        )
+          ? activeLanguage
+          : undefined;
+        this._sendSourceFiles(webviewView, validLanguage);
+      }, 1000);
+    };
+    // File system watcher untuk 3 bahasa saja
     const sourceWatcher = vscode.workspace.createFileSystemWatcher(
-      `{${sourceExtensions},**/*.js,**/*.ts,**/*.java,**/*.cs,**/*.go,**/*.rs,**/*.php,**/*.rb,**/*.kt,**/*.swift,**/*.cpp,**/*.h}`
+      "**/*.{py,js,java}",
+      false,
+      false,
+      false
     );
 
-    sourceWatcher.onDidCreate(() => sendSourceFiles());
-    sourceWatcher.onDidDelete(() => sendSourceFiles());
-    sourceWatcher.onDidChange(() => sendSourceFiles());
+    sourceWatcher.onDidCreate(() => refreshFileList());
+    sourceWatcher.onDidDelete(() => refreshFileList());
+    sourceWatcher.onDidChange(() => refreshFileList());
 
+    let editorChangeTimeout: NodeJS.Timeout | undefined;
+
+    const debouncedUpdate = () => {
+      if (editorChangeTimeout) clearTimeout(editorChangeTimeout);
+      editorChangeTimeout = setTimeout(() => {
+        updateActiveFile();
+        // Hanya refresh file list jika benar-benar perlu
+        if (webviewView.visible) {
+          const editor = vscode.window.activeTextEditor;
+          if (
+            editor &&
+            ["python", "javascript", "java"].includes(
+              editor.document.languageId
+            )
+          ) {
+            this._sendSourceFiles(webviewView, editor.document.languageId);
+          }
+        }
+      }, 500);
+    };
     // Editor events
     const disposables = [
       sourceWatcher,
-      vscode.window.onDidChangeActiveTextEditor(() => updateActiveFile()),
+      vscode.window.onDidChangeActiveTextEditor(() => debouncedUpdate()),
       vscode.workspace.onDidSaveTextDocument((doc) => {
-        updateActiveFile();
+        if (["python", "javascript", "java"].includes(doc.languageId)) {
+          debouncedUpdate();
+        }
       }),
       webviewView.onDidChangeVisibility(() => {
         if (webviewView.visible) {
-          updateActiveFile();
-          sendSourceFiles();
+          debouncedUpdate();
         }
       }),
     ];
@@ -432,52 +430,153 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
     // Cleanup on dispose
     webviewView.onDidDispose(() => {
       disposables.forEach((disposable) => disposable.dispose());
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      if (editorChangeTimeout) clearTimeout(editorChangeTimeout);
     });
   }
 
-  private async _sendSourceFiles(webviewView: vscode.WebviewView) {
+  private async _autoSelectInitialFile(webviewView: vscode.WebviewView) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) return;
+
+    const doc = editor.document;
+    if (!["python", "javascript", "java"].includes(doc.languageId)) return;
+
+    // Kirim file yang aktif ke webview
+    this._postMessage(webviewView, {
+      command: "selectedFile",
+      file: {
+        path: path.basename(doc.fileName),
+        language: doc.languageId,
+        fullPath: doc.fileName,
+      },
+    });
+
+    this._postMessage(webviewView, {
+      command: "configUpdate",
+      config: {
+        defaultLanguage: doc.languageId,
+      },
+    });
+  }
+
+  private _fileListCache: { [key: string]: any[] } = {};
+  private _lastCacheTime: number = 0;
+  private readonly CACHE_TTL = 30000;
+
+  private async _sendSourceFiles(
+    webviewView: vscode.WebviewView,
+    selectedLanguage?: string
+  ) {
+    // Declare webviewView variable
     const workspaceFolders = vscode.workspace.workspaceFolders;
+
     if (!workspaceFolders || workspaceFolders.length === 0) {
       this._postMessage(webviewView, { command: "fileList", files: [] });
       return;
     }
 
     try {
-      const sourceExtensions = Object.keys(LANGUAGE_FRAMEWORKS)
-        .map((lang) => `**/*.${getFileExtension(lang)}`)
-        .concat(
-          "**/*.js",
-          "**/*.ts",
-          "**/*.jsx",
-          "**/*.tsx",
-          "**/*.java",
-          "**/*.cs",
-          "**/*.go",
-          "**/*.rs",
-          "**/*.php",
-          "**/*.rb",
-          "**/*.kt",
-          "**/*.swift",
-          "**/*.cpp",
-          "**/*.h",
-          "**/*.hpp"
-        );
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+      const now = Date.now();
 
+      if (
+        this._fileListCache["all"] &&
+        now - this._lastCacheTime < this.CACHE_TTL
+      ) {
+        console.log("Using cached global file list");
+        this._currentFileList = this._fileListCache["all"];
+        this._postMessage(webviewView, {
+          command: "fileList",
+          files: this._fileListCache["all"],
+        });
+        return;
+      }
+
+      const pattern = "**/*.{py,js,java}";
+      const excludePattern = `{**/node_modules/**,**/.git/**,**/dist/**,**/build/**,**/target/**,**/bin/**,**/out/**,**/*.min.*}`;
+
+      console.time(`findFiles-${selectedLanguage || "all"}`);
       const files = await vscode.workspace.findFiles(
-        `{${sourceExtensions.join(",")}}`,
-        "**/node_modules/**,**/vendor/**,**/.git/**"
+        pattern,
+        excludePattern,
+        1000
       );
+      console.timeEnd(`findFiles-${selectedLanguage || "all"}`);
 
-      const root = workspaceFolders[0].uri.fsPath.replace(/\\/g, "/");
-      const fileList = files.map((uri) => ({
-        path: uri.fsPath.replace(/\\/g, "/").replace(root + "/", ""),
-        language: getLanguageFromExtension(path.extname(uri.fsPath)),
-      }));
+      if (files.length === 0) {
+        // Cek apakah workspace benar-benar kosong
+        const allFiles = await vscode.workspace.findFiles("**/*", null, 10);
+        console.log(`Total files in workspace: ${allFiles.length}`);
 
-      this._postMessage(webviewView, { command: "fileList", files: fileList });
+        if (allFiles.length === 0) {
+          this._postMessage(webviewView, {
+            command: "fileList",
+            files: [],
+            message: "Workspace is empty or contains no files.",
+          });
+        } else {
+          this._postMessage(webviewView, {
+            command: "fileList",
+            files: [],
+            message: `No ${selectedLanguage || "source"} files found. Found ${
+              allFiles.length
+            } other files.`,
+          });
+        }
+        this._currentFileList = [];
+        return;
+      }
+
+      const root = workspaceRoot.replace(/\\/g, "/");
+      const rootWithSlash = root.endsWith("/") ? root : root + "/";
+
+      const fileList = files.slice(0, 50).map((uri) => {
+        const fullPath = uri.fsPath.replace(/\\/g, "/");
+        const relativePath = fullPath.replace(rootWithSlash, "");
+
+        return {
+          path: relativePath,
+          language: getLanguageFromExtension(path.extname(uri.fsPath)),
+          fullPath: fullPath,
+          normalizedPath: relativePath.toLowerCase().replace(/\\/g, "/"),
+        };
+      });
+
+      this._fileListCache["all"] = fileList;
+      this._lastCacheTime = now;
+
+      this._updateCurrentFileList(fileList);
+      console.log(`Saved ${fileList.length} files to currentFileList`);
+
+      console.timeEnd("processFiles");
+      console.log(`Found ${fileList.length} files for all`);
+
+      this._postMessage(webviewView, {
+        command: "fileList",
+        files: fileList,
+      });
     } catch (error) {
-      console.error("Error finding source files:", error);
-      this._postMessage(webviewView, { command: "fileList", files: [] });
+      console.error("ERROR in _sendSourceFiles:", error);
+      this._postMessage(webviewView, {
+        command: "fileList",
+        files: [],
+      });
+      this._currentFileList = [];
+    }
+  }
+
+  private _updateCurrentFileList(files: any[]) {
+    this._currentFileList = files;
+    console.log(`Updated currentFileList with ${files.length} files`);
+    if (files.length > 0) {
+      console.log(
+        "First 3 files:",
+        files.slice(0, 3).map((f) => ({
+          path: f.path,
+          language: f.language,
+        }))
+      );
     }
   }
 
@@ -485,6 +584,11 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
     webviewView: vscode.WebviewView,
     language: string
   ) {
+    // Hanya kirim frameworks untuk bahasa yang didukung
+    if (!["python", "javascript", "java"].includes(language)) {
+      language = "python"; // Default ke python jika tidak dikenal
+    }
+
     const frameworks = LANGUAGE_FRAMEWORKS[language] || {
       testFrameworks: ["custom"],
       mockingFrameworks: ["custom"],
@@ -497,6 +601,240 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
+  private async _openFilePicker(webviewView: vscode.WebviewView) {
+    const shouldShowProgress = this._currentFileList.length === 0;
+
+    if (shouldShowProgress) {
+      return vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "Loading source files...",
+          cancellable: true,
+        },
+        async (progress, token) => {
+          return this._performFilePick(webviewView, progress, token);
+        }
+      );
+    } else {
+      return this._performFilePick(webviewView);
+    }
+  }
+
+  private async _performFilePick(
+    webviewView: vscode.WebviewView,
+    progress?: vscode.Progress<{ message?: string }>,
+    token?: vscode.CancellationToken
+  ) {
+    try {
+      if (progress) {
+        progress.report({ message: "Scanning workspace..." });
+      }
+
+      // MODIFIKASI: Selalu muat ulang file list, jangan bergantung pada cache
+      const activeLanguage =
+        vscode.window.activeTextEditor?.document.languageId;
+      const validLanguage = ["python", "javascript", "java"].includes(
+        activeLanguage || ""
+      )
+        ? activeLanguage
+        : undefined;
+
+      // MODIFIKASI: Simpan promise dari _sendSourceFiles untuk menunggu selesai
+      const fileLoadPromise = this._sendSourceFiles(webviewView, validLanguage);
+
+      // MODIFIKASI: Tunggu sampai file list benar-benar terisi
+      await fileLoadPromise;
+
+      // MODIFIKASI: Tunggu sedikit untuk memastikan _currentFileList terisi
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      // MODIFIKASI: Periksa apakah ada file setelah loading
+      if (this._currentFileList.length === 0) {
+        // Coba sekali lagi tanpa filter bahasa
+        await this._sendSourceFiles(webviewView, undefined);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        if (this._currentFileList.length === 0) {
+          vscode.window.showWarningMessage(
+            "No source files found. Make sure you have .py, .js, or .java files in your workspace."
+          );
+          return;
+        }
+      }
+
+      if (progress) {
+        progress.report({ message: "Preparing file list..." });
+      }
+
+      // MODIFIKASI: Debug logging untuk memastikan file list terisi
+      console.log(`File picker loaded ${this._currentFileList.length} files`);
+      if (this._currentFileList.length > 0) {
+        console.log(
+          "Sample files:",
+          this._currentFileList.slice(0, 3).map((f) => ({
+            path: f.path,
+            language: f.language,
+          }))
+        );
+      }
+
+      const MAX_FILES_PER_LANGUAGE = 100;
+      const languageGroups: { [key: string]: any[] } = {};
+
+      const pathToFileMap: Map<string, any> = new Map();
+
+      this._currentFileList.slice(0, 300).forEach((file) => {
+        // Limit display
+        const lang = file.language || "unknown";
+        if (!languageGroups[lang]) {
+          languageGroups[lang] = [];
+        }
+        if (languageGroups[lang].length < MAX_FILES_PER_LANGUAGE) {
+          languageGroups[lang].push(file);
+          const displayPath = file.path; // Path relatif
+          pathToFileMap.set(displayPath, file);
+
+          // Juga simpan basename untuk pencarian alternatif
+          const basename = path.basename(file.path);
+          if (!pathToFileMap.has(basename)) {
+            pathToFileMap.set(basename, file);
+          }
+        }
+      });
+
+      const quickPickItems: vscode.QuickPickItem[] = [];
+
+      const editor = vscode.window.activeTextEditor;
+      if (editor) {
+        const activeFile = {
+          path: path.basename(editor.document.fileName),
+          language: editor.document.languageId,
+          fullPath: editor.document.fileName,
+        };
+
+        if (["python", "javascript", "java"].includes(activeFile.language)) {
+          quickPickItems.push({
+            label: "$(star) Current File",
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+
+          quickPickItems.push({
+            label: `$(file) ${activeFile.path}`,
+            description: `(${activeFile.language}) - CURRENT`,
+            detail: "CURENT_ACTIVE_FILE ",
+          });
+
+          quickPickItems.push({
+            label: "",
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+
+          pathToFileMap.set("CURRENT_ACTIVE_FILE", {
+            path: activeFile.path,
+            language: activeFile.language,
+            fullPath: activeFile.fullPath,
+          });
+        }
+      }
+
+      // MODIFIKASI: Debug jumlah file per bahasa
+      console.log("Language groups:", Object.keys(languageGroups));
+      Object.keys(languageGroups).forEach((lang) => {
+        console.log(`  ${lang}: ${languageGroups[lang].length} files`);
+      });
+
+      // Tambahkan files grouped by language
+      Object.keys(languageGroups)
+        .sort()
+        .forEach((lang) => {
+          const files = languageGroups[lang];
+          if (files.length === 0) return;
+
+          quickPickItems.push({
+            label: `$(folder) ${
+              lang.charAt(0).toUpperCase() + lang.slice(1)
+            } (${files.length})`,
+            kind: vscode.QuickPickItemKind.Separator,
+          });
+
+          files.forEach((file) => {
+            quickPickItems.push({
+              label: `$(file) ${path.basename(file.path)}`,
+              description: `(${file.language})`,
+              detail: file.path,
+            });
+          });
+        });
+
+      // MODIFIKASI: Tambahkan fallback jika masih kosong
+      if (quickPickItems.length === 0) {
+        console.log("No quick pick items generated, showing fallback");
+        quickPickItems.push({
+          label: "No source files found",
+          description: "Create .py, .js, or .java files first",
+        });
+      }
+
+      const selected = await vscode.window.showQuickPick(quickPickItems, {
+        placeHolder: "Select a source file (type to filter)...",
+        matchOnDescription: true,
+        matchOnDetail: true,
+      });
+
+      if (selected && selected.detail) {
+        let selectedFile = null;
+
+        if (selected.detail === "CURRENT_ACTIVE_FILE") {
+          selectedFile = pathToFileMap.get("CURRENT_ACTIVE_FILE");
+        } else {
+          selectedFile = pathToFileMap.get(selected.detail);
+
+          if (!selectedFile) {
+            console.log(`File not found by detail: "${selected.detail}"`);
+            console.log("Available paths:", Array.from(pathToFileMap.keys()));
+
+            // Coba cari dengan basename
+            const basename = path.basename(selected.detail);
+            selectedFile = this._currentFileList.find(
+              (f) => path.basename(f.path) === basename
+            );
+
+            if (!selectedFile) {
+              // Cari dengan partial match
+              selectedFile = this._currentFileList.find(
+                (f) =>
+                  f.path.includes(selected.detail!) ||
+                  selected.detail!.includes(f.path)
+              );
+            }
+          }
+        }
+        if (selectedFile) {
+          console.log("Selected file found:", selectedFile);
+          this._postMessage(webviewView, {
+            command: "selectedFile",
+            file: selectedFile,
+          });
+        } else {
+          console.error("File not found:", selected.detail);
+          vscode.window.showErrorMessage(
+            `File "${selected.detail}" not found in workspace. Please select another file.`
+          );
+        }
+      }
+    } catch (error: any) {
+      if (
+        error instanceof vscode.CancellationError ||
+        error?.name === "Canceled"
+      ) {
+        console.log("File picker canceled");
+      } else {
+        console.error("Error in file picker:", error);
+        vscode.window.showErrorMessage(`File picker error: ${error.message}`);
+      }
+    }
+  }
+
   private async _handleGenerateTest(
     webviewView: vscode.WebviewView,
     message: any
@@ -507,12 +845,17 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const rootPath = workspaceFolders[0].uri.fsPath;
-    const selectedFilePath = path.join(rootPath, message.fileName);
+    const file = message.file;
+    const selectedFilePath: string | undefined = file?.fullPath;
+
+    if (!selectedFilePath) {
+      vscode.window.showErrorMessage("No file selected.");
+      return;
+    }
 
     if (!fs.existsSync(selectedFilePath)) {
       vscode.window.showErrorMessage(
-        `File ${selectedFilePath} tidak ditemukan.`
+        `Selected file not found: ${selectedFilePath}`
       );
       return;
     }
@@ -521,7 +864,7 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       const code = fs.readFileSync(selectedFilePath, "utf8");
       if (!code.trim()) {
         vscode.window.showErrorMessage(
-          `File yang dipilih (${message.fileName}) kosong. Tidak ada kode untuk dibuatkan unit test.`
+          `File yang dipilih (${message.file}) kosong. Tidak ada kode untuk dibuatkan unit test.`
         );
         return;
       }
@@ -529,6 +872,15 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       const language =
         message.language ||
         getLanguageFromExtension(path.extname(selectedFilePath));
+
+      // Validasi bahasa
+      if (!["python", "javascript", "java"].includes(language)) {
+        vscode.window.showErrorMessage(
+          `Bahasa ${language} tidak didukung. Hanya Python, JavaScript, dan Java yang didukung.`
+        );
+        return;
+      }
+
       vscode.window.showInformationMessage(
         `Generating ${language} unit tests...`
       );
@@ -536,7 +888,7 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       // Build configuration from user input
       const config: TestGenerationConfig = {
         ...DEFAULT_TEST_CONFIG,
-        programmingLanguage: language,
+        programmingLanguage: language as "python" | "javascript" | "java",
         testFramework:
           message.framework ||
           DEFAULT_CONFIG_BY_LANGUAGE[language]?.testFramework ||
@@ -558,7 +910,7 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
 
       const result = await generateUnitTest(
         message.provider,
-        message.fileName,
+        path.basename(selectedFilePath),
         code,
         config
       );
@@ -585,8 +937,10 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
         "Unit tests generated successfully!"
       );
     } catch (error: any) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       vscode.window.showErrorMessage(
-        `Failed to generate tests: ${error.message}`
+        `Failed to generate tests: ${errorMessage}`
       );
     }
   }
@@ -625,7 +979,9 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
       const newDocument = await vscode.workspace.openTextDocument(newFilePath);
       await vscode.window.showTextDocument(newDocument);
     } catch (error: any) {
-      vscode.window.showErrorMessage(`Failed to save file: ${error.message}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to save file: ${errorMessage}`);
     }
   }
 
@@ -741,11 +1097,19 @@ class UnitTestViewProvider implements vscode.WebviewViewProvider {
 
     try {
       let htmlContent = fs.readFileSync(htmlPath, "utf8");
-      htmlContent = htmlContent.replace(/{ICON_URI}/g, iconUri.toString());
-      // Inject language frameworks data
+
+      const escapeJson = JSON.stringify(LANGUAGE_FRAMEWORKS)
+        .replace(/`/g, "\\`")
+        .replace(/\$/g, "\\$");
+      // Replace placeholders (allow optional spaces inside braces)
       htmlContent = htmlContent.replace(
-        /{LANGUAGE_FRAMEWORKS}/g,
-        JSON.stringify(LANGUAGE_FRAMEWORKS)
+        /\{\s*ICON_URI\s*\}/g,
+        iconUri.toString()
+      );
+      // Inject language frameworks data into template
+      htmlContent = htmlContent.replace(
+        /\{LANGUAGE_FRAMEWORKS_ESCAPED\}/g,
+        escapeJson
       );
       return htmlContent;
     } catch (error) {
@@ -846,22 +1210,15 @@ async function generateUnitTest(
     throw new Error(`API key for ${provider} not found in .env`);
   }
 
-  // resolve fetch implementation at runtime
-  if (!runtimeFetch) {
-    try {
-      const req: any = eval("require");
-      const nf = req("node-fetch");
-      runtimeFetch = nf && nf.default ? nf.default : nf;
-    } catch (e) {
-      // leave runtimeFetch undefined
-    }
-  }
-
   if (!runtimeFetch) {
     throw new Error("No fetch implementation available");
   }
 
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 8000);
+
   const res = await runtimeFetch(url!, {
+    signal: controller.signal,
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -929,7 +1286,7 @@ You are an expert ${
 - Max Test Cases: ${maxTests}
 - Include Edge Cases: ${config.includeEdgeCases}
 - Include Error Cases: ${config.includeErrorCases}
-- Max Test Complexity: ${config.maxFunctionComplexity}
+- Max Test Complexity: ${config.maxFunctionComplexity} 
 
 ## LANGUAGE-SPECIFIC GUIDELINES:
 ${languageSpecificGuidelines}
@@ -1005,7 +1362,7 @@ Return ONLY the ${
 `;
 }
 
-// Get language-specific testing guidelines
+// Get language-specific testing guidelines - HANYA 3 BAHASA
 function getLanguageSpecificGuidelines(
   language: string,
   framework: string
@@ -1015,28 +1372,20 @@ function getLanguageSpecificGuidelines(
       framework === "pytest" ? "@pytest.fixture" : "setUp()/tearDown()"
     } for setup
 - Import unittest.mock for mocking
-- Use assert statements appropriately`,
+- Use assert statements appropriately
+- Follow PEP 8 style guidelines`,
     javascript: `- Use ${
       framework === "jest" ? "describe/it" : "describe/it"
     } blocks
 - Use expect() assertions
-- Mock using ${framework === "jest" ? "jest.mock()" : "sinon"}`,
-    typescript: `- Use ${
-      framework === "jest" ? "describe/it" : "describe/it"
-    } blocks
-- Include type definitions
-- Mock using ${framework === "jest" ? "jest.mock()" : "sinon"}`,
+- Mock using ${framework === "jest" ? "jest.mock()" : "sinon"}
+- Use async/await for asynchronous tests`,
     java: `- Use ${
       framework === "junit" ? "@Test annotations" : "appropriate annotations"
     }
 - Follow Java naming conventions
-- Use ${framework === "mockito" ? "@Mock annotations" : "appropriate mocking"}`,
-    csharp: `- Use ${framework} attributes
-- Follow C# naming conventions
-- Use appropriate assertion library`,
-    go: `- Use testing package
-- Follow Go naming conventions (TestXxx)
-- Use table-driven tests when appropriate`,
+- Use ${framework === "mockito" ? "@Mock annotations" : "appropriate mocking"}
+- Use JUnit 5 assertions`,
   };
 
   return (
@@ -1044,7 +1393,7 @@ function getLanguageSpecificGuidelines(
   );
 }
 
-// Analyze test quality metrics
+// Analyze test quality metrics - HANYA 3 BAHASA
 function analyzeTestQuality(
   testCode: string,
   sourceCode: string,
@@ -1054,29 +1403,21 @@ function analyzeTestQuality(
   const assertionPatterns: Record<string, RegExp[]> = {
     python: [/\bassert\s|\bself\.assert|\bunittest\.assert|\bpytest\.assert/g],
     javascript: [/\bexpect\(|\bassert\(|\bshould\.equal|\btoBe\(|\btoEqual\(/g],
-    typescript: [/\bexpect\(|\bassert\(|\bshould\.equal|\btoBe\(|\btoEqual\(/g],
     java: [/\bassertThat\(|\bassertEquals\(|\bassertTrue\(|\bassertFalse\(/g],
-    csharp: [
-      /\bAssert\.Equal\(|\bAssert\.True\(|\bAssert\.False\(|\bAssert\.NotNull\(/g,
-    ],
-    go: [/\bt\.Error\(|\bt\.Errorf\(|\bt\.Fatal\(|\bt\.Fatalf\(/g],
   };
 
   // Language-specific test function patterns
   const testFunctionPatterns: Record<string, RegExp[]> = {
     python: [/\bdef\s+test_/g],
     javascript: [/\bit\(|\bdescribe\(/g],
-    typescript: [/\bit\(|\bdescribe\(/g],
     java: [/\b@Test\b|\bpublic void test/g],
-    csharp: [/\b\[Test\]|\bpublic void Test/g],
-    go: [/\bfunc Test\w+\(/g],
   };
 
   const lower = testCode.toLowerCase();
 
   // Count test functions
   const patterns = testFunctionPatterns[language] || [
-    /def test_|it\(|describe\(|@Test|func Test/g,
+    /def test_|it\(|describe\(|@Test/g,
   ];
   let testCount = 0;
   patterns.forEach((pattern) => {
@@ -1162,55 +1503,29 @@ function analyzeTestQuality(
   };
 }
 
-// Get language from file extension
+// Get language from file extension - HANYA 3 BAHASA
 function getLanguageFromExtension(extension: string): string {
   const extensionMap: Record<string, string> = {
     ".py": "python",
     ".js": "javascript",
-    ".jsx": "javascript",
-    ".ts": "typescript",
-    ".tsx": "typescript",
     ".java": "java",
-    ".cs": "csharp",
-    ".go": "go",
-    ".rs": "rust",
-    ".php": "php",
-    ".rb": "ruby",
-    ".kt": "kotlin",
-    ".kts": "kotlin",
-    ".swift": "swift",
-    ".cpp": "cpp",
-    ".cc": "cpp",
-    ".cxx": "cpp",
-    ".h": "cpp",
-    ".hpp": "cpp",
-    ".hxx": "cpp",
   };
 
-  return extensionMap[extension.toLowerCase()] || "python";
+  return extensionMap[extension.toLowerCase()] || "python"; // Default ke python
 }
 
-// Get file extension for language
+// Get file extension for language - HANYA 3 BAHASA
 function getFileExtension(language: string): string {
   const languageMap: Record<string, string> = {
     python: "py",
     javascript: "js",
-    typescript: "ts",
     java: "java",
-    csharp: "cs",
-    go: "go",
-    rust: "rs",
-    php: "php",
-    ruby: "rb",
-    kotlin: "kt",
-    swift: "swift",
-    cpp: "cpp",
   };
 
   return languageMap[language] || "py";
 }
 
-// Get test file name based on language conventions
+// Get test file name based on language conventions - HANYA 3 BAHASA
 function getTestFileName(
   basename: string,
   extension: string,
@@ -1219,16 +1534,7 @@ function getTestFileName(
   const conventions: Record<string, string> = {
     python: `test_${basename}.py`,
     javascript: `${basename}.test${extension}`,
-    typescript: `${basename}.test${extension}`,
     java: `${basename}Test.java`,
-    csharp: `${basename}Tests.cs`,
-    go: `${basename}_test.go`,
-    rust: `${basename}_test.rs`,
-    php: `${basename}Test.php`,
-    ruby: `${basename}_test.rb`,
-    kotlin: `${basename}Test.kt`,
-    swift: `${basename}Tests.swift`,
-    cpp: `${basename}_test.cpp`,
   };
 
   return conventions[language] || `test_${basename}${extension}`;
@@ -1243,7 +1549,7 @@ function calculateComplexity(code: string): number {
   return Math.max(1, Math.round(lines * 0.1 + branches));
 }
 
-// Existing utility functions (keep these as they are)
+// Existing utility functions
 const runCommand = (
   cmd: string,
   args: string[],
@@ -1284,7 +1590,7 @@ async function runCoverageAndParse(
   }
 
   try {
-    // Language-specific coverage commands
+    // Language-specific coverage commands - HANYA 3 BAHASA
     const coverageCommands: Record<
       string,
       { run: string[]; report: string[] }
@@ -1297,22 +1603,9 @@ async function runCoverageAndParse(
         run: ["npx", "jest", "--coverage"],
         report: ["node", "-e", "console.log('Coverage generated by jest')"],
       },
-      typescript: {
-        run: ["npx", "jest", "--coverage"],
-        report: ["node", "-e", "console.log('Coverage generated by jest')"],
-      },
       java: {
         run: ["./mvnw", "test", "jacoco:report"],
         report: ["node", "-e", "console.log('Coverage generated by jacoco')"],
-      },
-      csharp: {
-        run: ["dotnet", "test", '--collect:"XPlat Code Coverage"'],
-        report: [
-          "dotnet",
-          "reportgenerator",
-          "-reports:*/coverage.cobertura.xml",
-          "-targetdir:coveragereport",
-        ],
       },
     };
 
